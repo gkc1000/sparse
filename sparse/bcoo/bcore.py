@@ -4,9 +4,9 @@ import numpy as np
 import scipy.sparse
 from numpy.lib.mixins import NDArrayOperatorsMixin
 
-from .common import dot
-from .indexing import getitem
-from .umath import elemwise, broadcast_to
+from .bcommon import dot
+from .bindexing import getitem
+from .bumath import elemwise, broadcast_to
 from ..compatibility import int, range
 from ..sparse_array import SparseArray
 from ..utils import _zero_of_dtype, normalize_axis
