@@ -194,7 +194,7 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
             self.enable_caching()
 
         if data is None:
-            arr = as_coo(coords, shape=shape, block_shape=block_shape)
+            arr = as_bcoo(coords, shape=shape, block_shape=block_shape)
             self._make_shallow_copy_of(arr)
             return
 
@@ -216,7 +216,9 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
             else:
                 shape = ()
 
-        super(BCOO, self).__init__(shape)
+        if block_shape is None:
+        
+        super(BCOO, self).__init__(shape, block_shape)
         if self.shape:
             dtype = np.min_scalar_type(max(max(self.shape) - 1, 0))
         else:
@@ -234,7 +236,7 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
     def _make_shallow_copy_of(self, other):
         self.coords = other.coords
         self.data = other.data
-        super(COO, self).__init__(other.shape)
+        super(BCOO, self).__init__(other.shape)
 
     def enable_caching(self):
         """ Enable caching of reshape, transpose, and tocsr/csc operations
