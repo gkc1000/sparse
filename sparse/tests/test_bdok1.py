@@ -6,7 +6,7 @@ from sparse import BDOK
 from sparse.utils import assert_eq
 
 def test_random_shape_nnz(shape, block_shape, density):
-    s = sparse.brandom(shape, block_shape, density, format='dok')
+    s = sparse.brandom(shape, block_shape, density, format='bdok')
 
     assert isinstance(s, BDOK)
 

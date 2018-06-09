@@ -90,6 +90,6 @@ def brandom(
 
     data = data_rvs(nnz,*block_shape)
 
-    ar = BCOO(ind[None, :], data, shape=nnz, block_shape=block_shape).reshape(shape)
+    ar = BCOO(ind[None, :], data, shape=nnz, block_shape=block_shape).reshape(shape, block_shape)
 
     return ar.asformat(format)

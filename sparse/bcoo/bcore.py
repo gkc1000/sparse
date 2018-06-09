@@ -186,14 +186,15 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
     """
     __array_priority__ = 12
 
-    def __init__(self, coords, data=None, shape=None, has_duplicates=True,
+    def __init__(self, coords, data=None, shape=None, block_shape=None,
+                 has_duplicates=True,
                  sorted=False, cache=False):
         self._cache = None
         if cache:
             self.enable_caching()
 
         if data is None:
-            arr = as_coo(coords, shape=shape)
+            arr = as_coo(coords, shape=shape, block_shape=block_shape)
             self._make_shallow_copy_of(arr)
             return
 
@@ -204,7 +205,7 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
             self.coords = self.coords[None, :]
 
         if self.data.ndim == 0:
-            self.data = np.broadcast_to(self.data, self.coords.shape[1])
+            self.data = np.broadcast_to(self.data, [self.coords.shape[1]] + block_shape)
 
         if shape and not self.coords.size:
             self.coords = np.zeros((len(shape), 0), dtype=np.uint64)
@@ -215,7 +216,7 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
             else:
                 shape = ()
 
-        super(COO, self).__init__(shape)
+        super(BCOO, self).__init__(shape)
         if self.shape:
             dtype = np.min_scalar_type(max(max(self.shape) - 1, 0))
         else:
@@ -1152,11 +1153,11 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
         >>> np.array_equal(np.flatnonzero(x), s.linear_loc())
         True
         """
-        from .common import linear_loc
+        from .bcommon import linear_loc
 
         return linear_loc(self.coords, self.shape, signed)
 
-    def reshape(self, shape):
+    def reshape(self, shape, block_shape):
         """
         Returns a new :obj:`COO` array that is a reshaped version of this array.
 
@@ -1210,7 +1211,7 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
             coords[-(i + 1), :] = (linear_loc // strides) % d
             strides *= d
 
-        result = COO(coords, self.data, shape,
+        result = BCOO(coords, self.data, shape, block_shape,
                      has_duplicates=False,
                      sorted=True, cache=self._cache is not None)
 
@@ -1545,12 +1546,12 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
         NotImplementedError
             If the format isn't supported.
         """
-        if format == 'coo' or format is COO:
+        if format == 'bcoo' or format is BCOO:
             return self
 
-        from ..dok import DOK
-        if format == 'dok' or format is DOK:
-            return DOK.from_coo(self)
+        from ..bdok import BDOK
+        if format == 'bdok' or format is BDOK:
+            return BDOK.from_bcoo(self)
 
         raise NotImplementedError('The given format is not supported.')
 
