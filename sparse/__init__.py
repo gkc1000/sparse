@@ -1,7 +1,9 @@
 from .coo import *
+from .bcoo import *
 from .dok import DOK
 from .bdok import BDOK
 from .sparse_array import SparseArray
+from .bsparse_array import BSparseArray
 from .utils import random
 from .butils import brandom
 from .io import save_npz, load_npz

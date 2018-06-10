@@ -8,11 +8,12 @@ from .bcommon import dot
 from .bindexing import getitem
 from .bumath import elemwise, broadcast_to
 from ..compatibility import int, range
-from ..sparse_array import SparseArray
+#from ..sparse_array import SparseArray
+from ..bsparse_array import BSparseArray
 from ..utils import _zero_of_dtype, normalize_axis
 
 
-class BCOO(SparseArray, NDArrayOperatorsMixin):
+class BCOO(BSparseArray, NDArrayOperatorsMixin):
     """
     A sparse multidimensional array.
 
@@ -217,6 +218,10 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
                 shape = ()
 
         if block_shape is None:
+            if self.coords.nbytes:
+                block_shape = tuple([1] * len(shape))
+            else:
+                block_shape = ()
         
         super(BCOO, self).__init__(shape, block_shape)
         if self.shape:
@@ -1558,7 +1563,7 @@ class BCOO(SparseArray, NDArrayOperatorsMixin):
         raise NotImplementedError('The given format is not supported.')
 
 
-def as_bcoo(x, shape=None):
+def as_bcoo(x, shape=None, block_shape=None):
     """
     Converts any given format to :obj:`COO`. See the "See Also" section for details.
 
@@ -1585,17 +1590,17 @@ def as_bcoo(x, shape=None):
         raise ValueError('Cannot provide a shape in combination with something '
                          'that already has a shape.')
 
-    if isinstance(x, SparseArray):
-        return x.asformat('coo')
+    if isinstance(x, BSparseArray):
+        return x.asformat('bcoo')
 
     if isinstance(x, np.ndarray):
-        return COO.from_numpy(x)
+        return BCOO.from_numpy(x)
 
     if isinstance(x, scipy.sparse.spmatrix):
-        return COO.from_scipy_sparse(x)
+        return BCOO.from_scipy_sparse(x)
 
     if isinstance(x, (Iterable, Iterator)):
-        return COO.from_iter(x, shape=shape)
+        return BCOO.from_iter(x, shape=shape)
 
     raise NotImplementedError('Format not supported for conversion. Supplied type is '
                               '%s, see help(sparse.as_coo) for supported formats.' % type(x))
