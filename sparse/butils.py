@@ -8,7 +8,7 @@ def brandom(
         density=0.01,
         random_state=None,
         data_rvs=None,
-        format='coo'
+        format='bcoo'
 ):
     """ Generate a random sparse multidimensional array
 

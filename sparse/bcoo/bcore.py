@@ -286,7 +286,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Examples
         --------
         >>> x = np.eye(5)
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s
         <COO: shape=(5, 5), dtype=float64, nnz=5>
         """
@@ -320,7 +320,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Examples
         --------
         >>> x = np.random.randint(100, size=(7, 3))
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> x2 = s.todense()
         >>> np.array_equal(x, x2)
         True
@@ -357,7 +357,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Examples
         --------
         >>> x = scipy.sparse.rand(6, 3, density=0.2)
-        >>> s = COO.from_scipy_sparse(x)
+        >>> s = BCOO.from_scipy_sparse(x)
         >>> np.array_equal(x.todense(), s.todense())
         True
         """
@@ -393,7 +393,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Here, the first part represents the coordinate and the second part represents the value.
 
         >>> x = [((0, 0), 1), ((1, 1), 1)]
-        >>> s = COO.from_iter(x)
+        >>> s = BCOO.from_iter(x)
         >>> s.todense()
         array([[1, 0],
                [0, 1]])
@@ -401,7 +401,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         You can also have a similar format with a dictionary.
 
         >>> x = {(0, 0): 1, (1, 1): 1}
-        >>> s = COO.from_iter(x)
+        >>> s = BCOO.from_iter(x)
         >>> s.todense()
         array([[1, 0],
                [0, 1]])
@@ -409,7 +409,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         The third supported format is ``(data, (..., row, col))``.
 
         >>> x = ([1, 1], ([0, 1], [0, 1]))
-        >>> s = COO.from_iter(x)
+        >>> s = BCOO.from_iter(x)
         >>> s.todense()
         array([[1, 0],
                [0, 1]])
@@ -417,7 +417,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         You can also pass in a :obj:`collections.Iterator` object.
 
         >>> x = [((0, 0), 1), ((1, 1), 1)].__iter__()
-        >>> s = COO.from_iter(x)
+        >>> s = BCOO.from_iter(x)
         >>> s.todense()
         array([[1, 0],
                [0, 1]])
@@ -429,7 +429,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             x = list(x)
 
         if len(x) != 2 and not all(len(item) == 2 for item in x):
-            raise ValueError('Invalid iterable to convert to COO.')
+            raise ValueError('Invalid iterable to convert to BCOO.')
 
         if not x:
             ndim = 0 if shape is None else len(shape)
@@ -471,7 +471,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Examples
         --------
         >>> x = (200 * np.random.rand(5, 4)).astype(np.int32)
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.dtype
         dtype('int32')
         >>> x.dtype == s.dtype
@@ -483,7 +483,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
     def nnz(self):
         """
         The number of nonzero elements in this array. Note that any duplicates in
-        :code:`coords` are counted multiple times. To avoid this, call :obj:`COO.sum_duplicates`.
+        :code:`coords` are counted multiple times. To avoid this, call :obj:`BCOO.sum_duplicates`.
 
         Returns
         -------
@@ -501,7 +501,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         >>> x = np.array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3, 0, 0])
         >>> np.count_nonzero(x)
         6
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.nnz
         6
         >>> np.count_nonzero(x) == s.nnz
@@ -555,7 +555,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Examples
         --------
         >>> x = np.zeros((10, 10))
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> len(s)
         10
         """
@@ -577,7 +577,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         self = args[0]
         if isinstance(self, scipy.sparse.spmatrix):
-            self = COO.from_scipy_sparse(self)
+            self = BCOO.from_scipy_sparse(self)
 
         return self.reduce(method, **kwargs)
 
@@ -608,21 +608,21 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         Notes
         -----
-        This function internally calls :obj:`COO.sum_duplicates` to bring the array into
+        This function internally calls :obj:`BCOO.sum_duplicates` to bring the array into
         canonical form.
 
         See Also
         --------
         numpy.ufunc.reduce : A similar Numpy method.
-        COO.nanreduce : Similar method with ``NaN`` skipping functionality.
+        BCOO.nanreduce : Similar method with ``NaN`` skipping functionality.
 
         Examples
         --------
-        You can use the :obj:`COO.reduce` method to apply a reduction operation to
+        You can use the :obj:`BCOO.reduce` method to apply a reduction operation to
         any Numpy :code:`ufunc`.
 
         >>> x = np.ones((5, 5), dtype=np.int)
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s2 = s.reduce(np.add, axis=1)
         >>> s2.todense()  # doctest: +NORMALIZE_WHITESPACE
         array([5, 5, 5, 5, 5])
@@ -684,8 +684,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             coords = coords[:, mask]
             result = result[mask]
 
-            a = COO(coords, result, shape=(a.shape[0],),
-                    has_duplicates=False, sorted=True)
+            a = BCOO(coords, result, shape=(a.shape[0],),
+                     has_duplicates=False, sorted=True)
 
             a = a.reshape(tuple(self.shape[d] for d in neg_axis))
             result = a
@@ -720,17 +720,17 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         Notes
         -----
-        * This function internally calls :obj:`COO.sum_duplicates` to bring the array into
+        * This function internally calls :obj:`BCOO.sum_duplicates` to bring the array into
           canonical form.
         * The :code:`out` parameter is provided just for compatibility with Numpy and
           isn't actually supported.
 
         Examples
         --------
-        You can use :obj:`COO.sum` to sum an array across any dimension.
+        You can use :obj:`BCOO.sum` to sum an array across any dimension.
 
         >>> x = np.ones((5, 5), dtype=np.int)
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s2 = s.sum(axis=1)
         >>> s2.todense()  # doctest: +NORMALIZE_WHITESPACE
         array([5, 5, 5, 5, 5])
@@ -781,14 +781,14 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         Notes
         -----
-        * This function internally calls :obj:`COO.sum_duplicates` to bring the array into
+        * This function internally calls :obj:`BCOO.sum_duplicates` to bring the array into
           canonical form.
         * The :code:`out` parameter is provided just for compatibility with Numpy and
           isn't actually supported.
 
         Examples
         --------
-        You can use :obj:`COO.max` to maximize an array across any dimension.
+        You can use :obj:`BCOO.max` to maximize an array across any dimension.
 
         >>> x = np.add.outer(np.arange(5), np.arange(5))
         >>> x  # doctest: +NORMALIZE_WHITESPACE
@@ -797,7 +797,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                [2, 3, 4, 5, 6],
                [3, 4, 5, 6, 7],
                [4, 5, 6, 7, 8]])
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s2 = s.max(axis=1)
         >>> s2.todense()  # doctest: +NORMALIZE_WHITESPACE
         array([4, 5, 6, 7, 8])
@@ -842,14 +842,14 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         Notes
         -----
-        * This function internally calls :obj:`COO.sum_duplicates` to bring the array into
+        * This function internally calls :obj:`BCOO.sum_duplicates` to bring the array into
           canonical form.
         * The :code:`out` parameter is provided just for compatibility with Numpy and
           isn't actually supported.
 
         Examples
         --------
-        You can use :obj:`COO.min` to minimize an array across any dimension.
+        You can use :obj:`BCOO.min` to minimize an array across any dimension.
 
         >>> x = np.add.outer(np.arange(5), np.arange(5))
         >>> x  # doctest: +NORMALIZE_WHITESPACE
@@ -858,7 +858,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                [2, 3, 4, 5, 6],
                [3, 4, 5, 6, 7],
                [4, 5, 6, 7, 8]])
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s2 = s.min(axis=1)
         >>> s2.todense()  # doctest: +NORMALIZE_WHITESPACE
         array([0, 1, 2, 3, 4])
@@ -902,14 +902,14 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         Notes
         -----
-        * This function internally calls :obj:`COO.sum_duplicates` to bring the array into
+        * This function internally calls :obj:`BCOO.sum_duplicates` to bring the array into
           canonical form.
         * The :code:`out` parameter is provided just for compatibility with Numpy and
           isn't actually supported.
 
         Examples
         --------
-        You can use :obj:`COO.prod` to multiply an array across any dimension.
+        You can use :obj:`BCOO.prod` to multiply an array across any dimension.
 
         >>> x = np.add.outer(np.arange(5), np.arange(5))
         >>> x  # doctest: +NORMALIZE_WHITESPACE
@@ -918,7 +918,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                [2, 3, 4, 5, 6],
                [3, 4, 5, 6, 7],
                [4, 5, 6, 7, 8]])
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s2 = s.prod(axis=1)
         >>> s2.todense()  # doctest: +NORMALIZE_WHITESPACE
         array([   0,  120,  720, 2520, 6720])
@@ -960,7 +960,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         See Also
         --------
-        :obj:`COO.T` : A quick property to reverse the order of the axes.
+        :obj:`BCOO.T` : A quick property to reverse the order of the axes.
         numpy.ndarray.transpose : Numpy equivalent function.
 
         Examples
@@ -975,7 +975,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                [6, 5, 4, 3, 2],
                [7, 6, 5, 4, 3],
                [8, 7, 6, 5, 4]])
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.transpose((1, 0)).todense()  # doctest: +NORMALIZE_WHITESPACE
         array([[4, 5, 6, 7, 8],
                [3, 4, 5, 6, 7],
@@ -987,7 +987,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         the last and second-to-last axes as required by some linear algebra operations.
 
         >>> x = np.random.rand(2, 3, 4)
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.transpose().shape
         (4, 3, 2)
         """
@@ -1034,7 +1034,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         See Also
         --------
-        :obj:`COO.transpose` : A method where you can specify the order of the axes.
+        :obj:`BCOO.transpose` : A method where you can specify the order of the axes.
         numpy.ndarray.T : Numpy equivalent property.
 
         Examples
@@ -1049,7 +1049,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                [6, 5, 4, 3, 2],
                [7, 6, 5, 4, 3],
                [8, 7, 6, 5, 4]])
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.T.todense()  # doctest: +NORMALIZE_WHITESPACE
         array([[4, 5, 6, 7, 8],
                [3, 4, 5, 6, 7],
@@ -1061,7 +1061,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         the last and second-to-last axes as required by some linear algebra operations.
 
         >>> x = np.random.rand(2, 3, 4)
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.T.shape
         (4, 3, 2)
         """
@@ -1091,7 +1091,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Examples
         --------
         >>> x = np.arange(4).reshape((2, 2))
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.dot(s) # doctest: +SKIP
         array([[ 2,  3],
                [ 6, 11]], dtype=int64)
@@ -1112,13 +1112,13 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         out = kwargs.pop('out', None)
-        if out is not None and not all(isinstance(x, COO) for x in out):
+        if out is not None and not all(isinstance(x, BCOO) for x in out):
             return NotImplemented
 
         if method == '__call__':
             result = elemwise(ufunc, *inputs, **kwargs)
         elif method == 'reduce':
-            result = COO._reduce(ufunc, *inputs, **kwargs)
+            result = BCOO._reduce(ufunc, *inputs, **kwargs)
         else:
             return NotImplemented
 
@@ -1162,7 +1162,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         Examples
         --------
         >>> x = np.eye(5)
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.linear_loc()  # doctest: +NORMALIZE_WHITESPACE
         array([ 0,  6, 12, 18, 24], dtype=uint8)
         >>> np.array_equal(np.flatnonzero(x), s.linear_loc())
@@ -1192,7 +1192,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         Examples
         --------
-        >>> s = COO.from_numpy(np.arange(25))
+        >>> s = BCOO.from_numpy(np.arange(25))
         >>> s2 = s.reshape((5, 5))
         >>> s2.todense()  # doctest: +NORMALIZE_WHITESPACE
         array([[ 0,  1,  2,  3,  4],
@@ -1261,8 +1261,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         See Also
         --------
-        COO.tocsr : Convert to a :obj:`scipy.sparse.csr_matrix`.
-        COO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
+        BCOO.tocsr : Convert to a :obj:`scipy.sparse.csr_matrix`.
+        BCOO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
         """
         if self.ndim != 2:
             raise ValueError("Can only convert a 2-dimensional array to a Scipy sparse matrix.")
@@ -1302,8 +1302,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         See Also
         --------
-        COO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
-        COO.to_scipy_sparse : Convert to a :obj:`scipy.sparse.coo_matrix`.
+        BCOO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
+        BCOO.to_scipy_sparse : Convert to a :obj:`scipy.sparse.coo_matrix`.
         scipy.sparse.coo_matrix.tocsr : Equivalent Scipy function.
         """
         if self._cache is not None:
@@ -1338,8 +1338,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         See Also
         --------
-        COO.tocsr : Convert to a :obj:`scipy.sparse.csr_matrix`.
-        COO.to_scipy_sparse : Convert to a :obj:`scipy.sparse.coo_matrix`.
+        BCOO.tocsr : Convert to a :obj:`scipy.sparse.csr_matrix`.
+        BCOO.to_scipy_sparse : Convert to a :obj:`scipy.sparse.coo_matrix`.
         scipy.sparse.coo_matrix.tocsc : Equivalent Scipy function.
         """
         if self._cache is not None:
@@ -1361,8 +1361,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
     def _sort_indices(self):
         """
-        Sorts the :obj:`COO.coords` attribute. Also sorts the data in
-        :obj:`COO.data` to match.
+        Sorts the :obj:`BCOO.coords` attribute. Also sorts the data in
+        :obj:`BCOO.data` to match.
 
         Examples
         --------
@@ -1386,7 +1386,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
     def _sum_duplicates(self):
         """
-        Sums data corresponding to duplicates in :obj:`COO.coords`.
+        Sums data corresponding to duplicates in :obj:`BCOO.coords`.
 
         See Also
         --------
@@ -1453,7 +1453,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         See also
         --------
         :obj:`numpy.round` : NumPy equivalent ufunc.
-        :obj:`COO.elemwise`: Apply an arbitrary element-wise function to one or two
+        :obj:`BCOO.elemwise`: Apply an arbitrary element-wise function to one or two
             arguments.
 
         Notes
@@ -1473,7 +1473,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         --------
         scipy.sparse.coo_matrix.astype : SciPy sparse equivalent function
         numpy.ndarray.astype : NumPy equivalent ufunc.
-        :obj:`COO.elemwise`: Apply an arbitrary element-wise function to one or two
+        :obj:`BCOO.elemwise`: Apply an arbitrary element-wise function to one or two
             arguments.
 
         Notes
@@ -1509,7 +1509,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         --------
         Convert a small sparse array to a dense array.
 
-        >>> s = COO.from_numpy(np.random.rand(2, 3, 4))
+        >>> s = BCOO.from_numpy(np.random.rand(2, 3, 4))
         >>> x = s.maybe_densify()
         >>> np.allclose(x, s.todense())
         True
@@ -1520,7 +1520,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         >>> x = np.zeros((5, 5), dtype=np.uint8)
         >>> x[2, 2] = 1
-        >>> s = COO.from_numpy(x)
+        >>> s = BCOO.from_numpy(x)
         >>> s.maybe_densify(max_size=5, min_density=0.25)
         Traceback (most recent call last):
             ...
@@ -1547,7 +1547,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         Examples
         --------
-        >>> s = COO.from_numpy(np.eye(5))
+        >>> s = BCOO.from_numpy(np.eye(5))
         >>> s.nonzero()
         (array([0, 1, 2, 3, 4], dtype=uint8), array([0, 1, 2, 3, 4], dtype=uint8))
         """
@@ -1601,9 +1601,9 @@ def as_bcoo(x, shape=None, block_shape=None):
     See Also
     --------
     SparseArray.asformat : A utility function to convert between formats in this library.
-    COO.from_numpy : Convert a Numpy array to :obj:`COO`.
-    COO.from_scipy_sparse : Convert a SciPy sparse matrix to :obj:`COO`.
-    COO.from_iter : Convert an iterable to :obj:`COO`.
+    BCOO.from_numpy : Convert a Numpy array to :obj:`COO`.
+    BCOO.from_scipy_sparse : Convert a SciPy sparse matrix to :obj:`COO`.
+    BCOO.from_iter : Convert an iterable to :obj:`COO`.
     """
     if hasattr(x, 'shape') and shape is not None:
         raise ValueError('Cannot provide a shape in combination with something '
