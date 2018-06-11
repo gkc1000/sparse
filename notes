@@ -1,0 +1,2 @@
+- shape is now a tuple; shape[0] is outer_shape, shape[1] is block_shape
+- working on BCOO reductions (result is a scalar)
