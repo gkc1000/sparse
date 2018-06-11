@@ -4,11 +4,11 @@ import numpy as np
 
 from .slicing import normalize_index
 from .utils import _zero_of_dtype
-from .sparse_array import SparseArray
+from .bsparse_array import BSparseArray
 from .compatibility import int, range, zip
 
 
-class BDOK(SparseArray):
+class BDOK(BSparseArray):
     """
     A class for building sparse multidimensional arrays.
 
@@ -87,22 +87,28 @@ class BDOK(SparseArray):
     <BDOK: shape=(5, 5, 5), dtype=int64, nnz=1>
     """
 
-    def __init__(self, shape, data=None, dtype=None):
+    def __init__(self, shape, block_shape=None, data=None, dtype=None):
         from .bcoo import BCOO
         self.data = dict()
 
         if isinstance(shape, BCOO):
+            if block_shape is not None:
+                raise RuntimeError('Cannot supply block_shape when converting from BCOO')
             ar = BDOK.from_bcoo(shape)
             self._make_shallow_copy_of(ar)
             return
 
+        if block_shape is None:
+            raise RuntimeError('block_shape cannot be None unless initializing from BCOO')
+        
         if isinstance(shape, np.ndarray):
-            ar = BDOK.from_numpy(shape)
+            
+            ar = BDOK.from_numpy(shape, block_shape)
             self._make_shallow_copy_of(ar)
             return
 
         self.dtype = np.dtype(dtype)
-        super(BDOK, self).__init__(shape)
+        super(BDOK, self).__init__(shape, block_shape)
 
         if not data:
             data = dict()
@@ -120,7 +126,7 @@ class BDOK(SparseArray):
             raise ValueError('data must be a dict.')
 
     def _make_shallow_copy_of(self, other):
-        super(BDOK, self).__init__(other.shape)
+        super(BDOK, self).__init__(other.shape, other.block_shape)
         self.dtype = other.dtype
         self.data = other.data
 
@@ -147,7 +153,7 @@ class BDOK(SparseArray):
         >>> s2
         <BDOK: shape=(4, 4), dtype=float64, nnz=4>
         """
-        ar = cls(x.shape, dtype=x.dtype)
+        ar = cls(x.shape, x.block_shape, dtype=x.dtype)
 
         for c, d in zip(x.coords.T, x.data):
             ar.data[tuple(c)] = d
@@ -177,7 +183,7 @@ class BDOK(SparseArray):
         return BCOO(self)
 
     @classmethod
-    def from_numpy(cls, x):
+    def from_numpy(cls, x, block_shape):
         """
         Get a :obj:`BDOK` array from a Numpy array.
 
@@ -197,10 +203,17 @@ class BDOK(SparseArray):
         >>> s
         <BDOK: shape=(4, 4), dtype=float64, nnz=4>
         """
-        ar = cls(x.shape, dtype=x.dtype)
+        ar = cls(x.shape, block_shape, dtype=x.dtype)
 
-        coords = np.nonzero(x)
-        data = x[coords]
+        full_shape = tuple(list(ar.outer_shape) + list(block_shape))
+        blk_x = np.reshape(x, full_shape)
+        sum_x = np.zeros(ar.outer_shape)
+        
+        for ix in np.ndindex(sum_x.shape):
+            sum_x[ix] = np.sum(blk_x[ix])
+
+        coords = np.nonzero(sum_x)
+        data = blk_x[coords]
 
         for c in zip(data, *coords):
             d, c = c[0], c[1:]
@@ -234,10 +247,10 @@ class BDOK(SparseArray):
         >>> s.nnz
         1
         """
-        return len(self.data)
+        return len(self.data) * np.product(self.block_shape)
 
     def __getitem__(self, key):
-        key = normalize_index(key, self.shape)
+        key = normalize_index(key, self.outer_shape)
 
         if not all(isinstance(i, Integral) for i in key):
             raise NotImplementedError('All indices must be integers'
@@ -256,7 +269,7 @@ class BDOK(SparseArray):
             return _zero_of_dtype(self.dtype)[()]
 
     def __setitem__(self, key, value):
-        key = normalize_index(key, self.shape)
+        key = normalize_index(key, self.outer_shape)
         value = np.asanyarray(value)
 
         value = value.astype(self.dtype)
@@ -277,14 +290,14 @@ class BDOK(SparseArray):
                 if step > 0:
                     start = ind.start if ind.start is not None else 0
                     start = max(start, 0)
-                    stop = ind.stop if ind.stop is not None else self.shape[i]
-                    stop = min(stop, self.shape[i])
+                    stop = ind.stop if ind.stop is not None else self.outer_shape[i]
+                    stop = min(stop, self.outer_shape[i])
                     if start > stop:
                         start = stop
                 else:
-                    start = ind.start or self.shape[i] - 1
+                    start = ind.start or self.outer_shape[i] - 1
                     stop = ind.stop if ind.stop is not None else -1
-                    start = min(start, self.shape[i] - 1)
+                    start = min(start, self.outer_shape[i] - 1)
                     stop = max(stop, -1)
                     if start < stop:
                         start = stop
@@ -308,7 +321,7 @@ class BDOK(SparseArray):
             del self.data[key]
 
     def __str__(self):
-        return "<BDOK: shape=%s, dtype=%s, nnz=%d>" % (self.shape, self.dtype, self.nnz)
+        return "<BDOK: shape=%s, outer_shape=%s, block_shape=%s, dtype=%s, nnz=%d>" % (self.shape, self.outer_shape, self.block_shape, self.dtype, self.nnz)
 
     __repr__ = __str__
 
@@ -337,12 +350,13 @@ class BDOK(SparseArray):
                [0., 0., 0., 0., 0.],
                [0., 0., 0., 0., 0.]])
         """
-        result = np.zeros(self.shape, dtype=self.dtype)
+        full_shape = tuple(list(self.outer_shape) + list(self.block_shape))
+        result = np.zeros(full_shape, dtype=self.dtype)
 
         for c, d in self.data.items():
             result[c] = d
 
-        return result
+        return np.reshape(result, self.shape)
 
     def asformat(self, format):
         """
@@ -368,6 +382,7 @@ class BDOK(SparseArray):
 
         from .bcoo import BCOO
         if format == 'bcoo' or format is BCOO:
-            return BCOO.from_iter(self.data, shape=self.shape)
+            return BCOO.from_iter(self.data, shape=self.shape,
+                                  block_shape=self.block_shape)
 
         raise NotImplementedError('The given format is not supported.')

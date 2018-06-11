@@ -223,7 +223,9 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             else:
                 block_shape = ()
         
+
         super(BCOO, self).__init__(shape, block_shape)
+        #BSparseArray.__init__(self, shape, block_shape)
         if self.shape:
             dtype = np.min_scalar_type(max(max(self.shape) - 1, 0))
         else:
@@ -241,7 +243,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
     def _make_shallow_copy_of(self, other):
         self.coords = other.coords
         self.data = other.data
-        super(BCOO, self).__init__(other.shape)
+        super(BCOO, self).__init__(other.shape, other.block_shape)
 
     def enable_caching(self):
         """ Enable caching of reshape, transpose, and tocsr/csc operations
@@ -323,7 +325,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         >>> np.array_equal(x, x2)
         True
         """
-        x = np.zeros(shape=self.shape, dtype=self.dtype)
+        full_shape = tuple(list(self.outer_shape) + list(self.block_shape))
+        x = np.zeros(shape=full_shape, dtype=self.dtype)
 
         coords = tuple([self.coords[i, :] for i in range(self.ndim)])
         data = self.data
@@ -334,7 +337,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             if len(data) != 0:
                 x[coords] = data
 
-        return x
+        return np.reshape(x, self.shape)
 
     @classmethod
     def from_scipy_sparse(cls, x):
@@ -367,7 +370,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                    sorted=x.has_canonical_format)
 
     @classmethod
-    def from_iter(cls, x, shape=None):
+    def from_iter(cls, x, shape=None, block_shape=None):
         """
         Converts an iterable in certain formats to a :obj:`COO` array. See examples
         for details.
@@ -433,8 +436,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             coords = np.empty((ndim, 0), dtype=np.uint8)
             data = np.empty((0,))
 
-            return COO(coords, data, shape=() if shape is None else shape,
-                       sorted=True, has_duplicates=False)
+            return BCOO(coords, data, shape=() if shape is None else shape, block_shape=() if block_shape is None else block_shape,
+                        sorted=True, has_duplicates=False)
 
         if not isinstance(x[0][0], Iterable):
             coords = np.stack(x[1], axis=0)
@@ -443,11 +446,12 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             coords = np.array([item[0] for item in x]).T
             data = np.array([item[1] for item in x])
 
-        if not (coords.ndim == 2 and data.ndim == 1 and
-                np.issubdtype(coords.dtype, np.integer) and np.all(coords >= 0)):
-            raise ValueError('Invalid iterable to convert to COO.')
+        if not (coords.ndim == 2 and np.issubdtype(coords.dtype, np.integer) and np.all(coords >= 0)):
+            raise ValueError('Invalid iterable to convert to BCOO.')
+        if block_shape is not None and data.shape[1:] != block_shape:
+            raise ValueError('Invalid iterable to convert to BCOO.')
 
-        return COO(coords, data, shape=shape)
+        return BCOO(coords, data, shape=shape, block_shape=block_shape)
 
     @property
     def dtype(self):
@@ -503,8 +507,12 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         >>> np.count_nonzero(x) == s.nnz
         True
         """
-        return self.coords.shape[1]
+        return self.coords.shape[1] * np.product(self.block_shape)
 
+    @property
+    def block_nnz(self):
+        return self.coords.shape[1]
+    
     @property
     def nbytes(self):
         """
@@ -559,7 +567,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
     __getitem__ = getitem
 
     def __str__(self):
-        return "<COO: shape=%s, dtype=%s, nnz=%d>" % (self.shape, self.dtype, self.nnz)
+        return "<BCOO: shape=%s, block_shape=%s, dtype=%s, nnz=%d, block_nnz=%d>" % (self.shape, self.block_shape, self.dtype, self.nnz, self.block_nnz)
 
     __repr__ = __str__
 
@@ -1193,14 +1201,20 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                [15, 16, 17, 18, 19],
                [20, 21, 22, 23, 24]])
         """
-        if self.shape == shape:
+        if self.shape == shape and self.block_shape == block_shape:
             return self
+
         if any(d == -1 for d in shape):
             extra = int(self.size /
                         np.prod([d for d in shape if d != -1]))
             shape = tuple([d if d != -1 else extra for d in shape])
 
-        if self.shape == shape:
+        if any(d == -1 for d in block_shape):
+            extra = int(self.size /
+                        np.prod([d for d in block_shape if d != -1]))
+            block_shape = tuple([d if d != -1 else extra for d in block_shape])
+
+        if self.shape == shape and self.block_shape == block_shape:
             return self
 
         if self._cache is not None:
@@ -1211,14 +1225,19 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         # TODO: this self.size enforces a 2**64 limit to array size
         linear_loc = self.linear_loc()
 
-        max_shape = max(shape) if len(shape) != 0 else 1
-        coords = np.empty((len(shape), self.nnz), dtype=np.min_scalar_type(max_shape - 1))
+
+        outer_shape, mod_shape = np.divmod(shape, block_shape)
+        max_shape = max(outer_shape) if len(outer_shape) != 0 else 1
+
+        coords = np.empty((len(outer_shape), self.block_nnz), dtype=np.min_scalar_type(max_shape - 1))
         strides = 1
-        for i, d in enumerate(shape[::-1]):
+        for i, d in enumerate(outer_shape[::-1]):
             coords[-(i + 1), :] = (linear_loc // strides) % d
             strides *= d
 
-        result = BCOO(coords, self.data, shape, block_shape,
+        data = np.reshape(self.data, tuple([self.data.shape[0]] + list(block_shape)))
+        
+        result = BCOO(coords, data, shape, block_shape,
                      has_duplicates=False,
                      sorted=True, cache=self._cache is not None)
 

@@ -34,6 +34,7 @@ def assert_eq(x, y, check_nnz=True, compare_dtype=True, **kwargs):
             assert (yy != 0).sum() == y.nnz
     else:
         yy = y
+
     assert checking_method(xx, yy, **kwargs)
 
 

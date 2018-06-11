@@ -2,7 +2,6 @@ import numpy as np
 from numbers import Integral
 from collections import Iterable
 
-
 def brandom(
         shape,
         block_shape,
@@ -64,7 +63,9 @@ def brandom(
     # See https://github.com/scipy/scipy/blob/master/LICENSE.txt
     from .bcoo import BCOO
 
-    elements = np.prod(shape)
+    outer_shape, mod_shape = np.divmod(shape, block_shape)
+    
+    elements = np.prod(outer_shape)
 
     nnz = int(elements * density)
 
@@ -88,8 +89,15 @@ def brandom(
             selected.add(j)
             ind[i] = j
 
+    blk_ind = np.zeros([len(block_shape), nnz], ind.dtype)
+    blk_ind[0] = ind 
+    for i in range(1, len(block_shape)):
+        blk_ind[i] = [0]*nnz
+        
     data = data_rvs(nnz,*block_shape)
-
-    ar = BCOO(ind[None, :], data, shape=nnz, block_shape=block_shape).reshape(shape, block_shape)
+    bcoo_shape = list(block_shape)
+    bcoo_shape[0] *= nnz
+    
+    ar = BCOO(blk_ind, data, bcoo_shape, block_shape=block_shape).reshape(shape, block_shape)
 
     return ar.asformat(format)
