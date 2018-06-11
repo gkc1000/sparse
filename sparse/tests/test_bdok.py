@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import numpy as np
 import six
 
@@ -35,8 +36,14 @@ def test_convert_from_coo():
 
 
 def test_convert_from_numpy():
-    x = np.random.rand(2, 4, 4)
-    s = BDOK(x, (2, 2, 2))
+    #x = np.random.rand(2, 4, 4)
+    #s = BDOK(x, (2, 2, 2))
+    
+    x = np.array([[1,-1,0,0],[1,-1,0,0],[2,2,3,3],[2,2,3,3]])
+    s = BDOK(x, (2, 2))
+
+    print x
+    print s.todense()
 
     assert_eq(x, s)
 
@@ -46,3 +53,10 @@ def test_convert_to_numpy():
     x = s.todense()
 
     assert_eq(x, s)
+
+
+    
+    
+if __name__ == '__main__':
+    print "\n main test \n"
+    test_convert_from_numpy()

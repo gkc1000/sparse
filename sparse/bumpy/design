@@ -1,0 +1,22 @@
+Goal
+      1. Dense blocked tensor class (A) [i.e. do not use any sparsity] == match Dense tensor (B) operations
+      	 - storage is dense, i.e. underlying array (A) == dense array (B)
+      2. Sparse blocked tensor class [i.e. some blocks are zero] == match Dense tensor operations
+      	 - storage is dense, i.e. underlying array (A) == dense array (B)
+	 - sparsity as boolean tensor
+      3. Sparse blocked tensor class
+      	 - optimize storage and sparsity operations
+
+Write tests for 1.: use CTF/python array as starting point.
+
+      1. a[i,j, ...] returns a tensor
+      2. in all contractions, dimensions are assumed to match, otherwise error
+      	 i.e. individual block dimensions always match
+      3. shape [?]
+         - GKC suggestion: shape, block_shape, sparsity as different concepts
+	                   almost all functions, other than initialization, can use only shape [other args are optional]
+
+			   GKC impl:
+			   - shape is tuple
+			   - block_shape is tuple of tuples
+			   - storage is ndarray

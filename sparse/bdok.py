@@ -2,6 +2,8 @@ from numbers import Integral
 
 import numpy as np
 
+import bumpy  
+
 from .slicing import normalize_index
 from .utils import _zero_of_dtype
 from .bsparse_array import BSparseArray
@@ -205,15 +207,14 @@ class BDOK(BSparseArray):
         """
         ar = cls(x.shape, block_shape, dtype=x.dtype)
 
-        full_shape = tuple(list(ar.outer_shape) + list(block_shape))
-        blk_x = np.reshape(x, full_shape)
+        # first convert to bndarray
+        ba = bumpy.bndarray(ar.outer_shape, block_shape, data = x) 
         sum_x = np.zeros(ar.outer_shape)
-        
         for ix in np.ndindex(sum_x.shape):
-            sum_x[ix] = np.sum(blk_x[ix])
-
+            sum_x[ix] = np.sum(np.abs(ba[ix]))
+        
         coords = np.nonzero(sum_x)
-        data = blk_x[coords]
+        data = ba[coords]
 
         for c in zip(data, *coords):
             d, c = c[0], c[1:]
@@ -350,13 +351,12 @@ class BDOK(BSparseArray):
                [0., 0., 0., 0., 0.],
                [0., 0., 0., 0., 0.]])
         """
-        full_shape = tuple(list(self.outer_shape) + list(self.block_shape))
-        result = np.zeros(full_shape, dtype=self.dtype)
+        result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
 
         for c, d in self.data.items():
             result[c] = d
-
-        return np.reshape(result, self.shape)
+        
+        return result.todense()
 
     def asformat(self, format):
         """

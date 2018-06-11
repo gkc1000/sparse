@@ -1,5 +1,6 @@
 from .coo import *
 from .bcoo import *
+from .bumpy import *
 from .dok import DOK
 from .bdok import BDOK
 from .sparse_array import SparseArray
