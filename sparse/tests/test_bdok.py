@@ -89,6 +89,54 @@ def test_setitem():
 
     assert_eq(x_b.todense(), s.todense())
     
+def test_default_dtype():
+    s = BDOK((5,), block_shape = (1,))
+
+    assert s.dtype == np.float64
+
+
+def test_int_dtype():
+    data = {
+        1: np.uint8(1),
+        2: np.uint16(2),
+    }
+
+    s = DOK((5,), data)
+
+    assert s.dtype == np.uint16
+
+
+def test_float_dtype():
+    data = {
+        1: np.uint8(1),
+        2: np.float32(2),
+    }
+
+    s = BDOK((5,), block_shape = (1,), data = data)
+
+    assert s.dtype == np.float32
+
+
+def test_set_zero():
+    s = BDOK((1,), block_shape = (1,), dtype=np.uint8)
+    s[0] = 1
+    s[0] = 0
+
+    assert s[0] == 0
+    assert s.nnz == 0
+
+
+def test_asformat():
+    s = sparse.brandom((4, 6, 8), (2, 3, 4), 0.5, format='bdok')
+    s2 = s.asformat('bcoo')
+    #s2 = s.asformat('bdok')
+
+    #s = sparse.brandom((4, 3), (2, 1), 0.5, format='bdok')
+    #x = np.array([[1,-1,0,0],[1,-1,0,0],[2,2,3,3],[2,2,3,3]])
+    #s = BDOK(x, block_shape = (2, 2))
+    #s2 = s.asformat('bcoo')
+
+    assert_eq(s, s2)
     
 if __name__ == '__main__':
     print "\n main test \n"
@@ -96,3 +144,7 @@ if __name__ == '__main__':
     test_convert_from_numpy()
     test_getitem()
     test_setitem()
+    test_default_dtype()
+    test_float_dtype()
+    test_set_zero()
+    test_asformat()
