@@ -11,7 +11,7 @@ class bndarray(np.ndarray):
 
         if block_dtype is None:
             if data is None:
-                block_dtype = float
+                block_dtype = np.float64
             else:
                 block_dtype = data.dtype
         else:
@@ -63,13 +63,13 @@ class bndarray(np.ndarray):
         
 
 
-def zeros(shape, block_shape, dtype=float):
+def zeros(shape, block_shape, dtype = np.float64):
     obj = bndarray(shape, block_shape, block_dtype = dtype)
     for ix in np.ndindex(obj.shape):
         obj[ix] = np.zeros(obj.block_shape, dtype)
     return obj
 
-def eye(N, block_N, dtype=float):
+def eye(N, block_N, dtype = np.float64):
     shape = [N, N]
     block_shape = [block_N, block_N]
     obj = zeros(shape, block_shape, dtype)
@@ -78,7 +78,7 @@ def eye(N, block_N, dtype=float):
     return obj
 
 # should be in bumpy/random
-def random(shape, block_shape, dtype=float):
+def random(shape, block_shape, dtype = np.float64):
     obj = bndarray(shape, block_shape, block_dtype = dtype)
     for ix in np.ndindex(obj.shape):
         obj[ix] = np.random.random(obj.block_shape)

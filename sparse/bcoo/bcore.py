@@ -4,6 +4,8 @@ import numpy as np
 import scipy.sparse
 from numpy.lib.mixins import NDArrayOperatorsMixin
 
+from ..bumpy import bumpy
+
 from .bcommon import dot
 from .bindexing import getitem
 from .bumath import elemwise, broadcast_to
@@ -325,19 +327,19 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         >>> np.array_equal(x, x2)
         True
         """
-        full_shape = tuple(list(self.outer_shape) + list(self.block_shape))
-        x = np.zeros(shape=full_shape, dtype=self.dtype)
+        
+        result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
 
-        coords = tuple([self.coords[i, :] for i in range(self.ndim)])
         data = self.data
 
-        if coords != ():
-            x[coords] = data
+        if self.coords is not None:
+            for i in range(self.coords.shape[1]):
+                result[tuple(self.coords[:, i])] = data[i]
         else:
             if len(data) != 0:
-                x[coords] = data
+                result = bumpy.bndarray(shape = self.outer_shape, block_shape = self.block_shape, data = data, block_dtype = dtype )
 
-        return np.reshape(x, self.shape)
+        return result.todense()
 
     @classmethod
     def from_scipy_sparse(cls, x):

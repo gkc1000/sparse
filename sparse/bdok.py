@@ -359,7 +359,7 @@ class BDOK(BSparseArray):
 
         key = tuple(key_list)
         #if value != _zero_of_dtype(self.dtype):
-        if not np.isclose(np.sum(np.abs(value)), 0.0):
+        if np.sum(np.abs(value)) != 0.0:
             self.data[key] = value[()]
         elif key in self.data:
             del self.data[key]
