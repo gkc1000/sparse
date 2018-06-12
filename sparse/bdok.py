@@ -222,6 +222,42 @@ class BDOK(BSparseArray):
 
         return ar
 
+    @classmethod
+    def from_bumpy(cls, x, block_shape):
+        """
+        Get a :obj:`BDOK` array from a bumpy array.
+
+        Parameters
+        ----------
+        x : bumpy.bndarray
+            The array to convert.
+
+        Returns
+        -------
+        BDOK
+            The equivalent :obj:`BDOK` array.
+
+        Examples
+        --------
+        """
+        ar = cls(x.shape, block_shape, dtype=x.dtype)
+
+        # first convert to bndarray
+        ba = x 
+        sum_x = np.zeros(ar.outer_shape)
+        for ix in np.ndindex(sum_x.shape):
+            sum_x[ix] = np.sum(np.abs(ba[ix]))
+        
+        coords = np.nonzero(sum_x)
+        data = ba[coords]
+
+        for c in zip(data, *coords):
+            d, c = c[0], c[1:]
+            ar.data[c] = d
+
+        return ar
+
+
     @property
     def nnz(self):
         """
@@ -267,7 +303,8 @@ class BDOK(BSparseArray):
         if key in self.data:
             return self.data[key]
         else:
-            return _zero_of_dtype(self.dtype)[()]
+            #return _zero_of_dtype(self.dtype)[()]
+            return np.zeros(self.block_shape, dtype = self.dtype)
 
     def __setitem__(self, key, value):
         key = normalize_index(key, self.outer_shape)
@@ -357,6 +394,32 @@ class BDOK(BSparseArray):
             result[c] = d
         
         return result.todense()
+
+    def to_bumpy(self):
+        """
+        Convert this :obj:`BDOK` array into a bumpy array.
+
+        Returns
+        -------
+        bumpy.bndarray
+            The equivalent dense array.
+
+        See Also
+        --------
+        BCOO.todense : Equivalent :obj:`BCOO` array method.
+        scipy.sparse.bdok_matrix.todense : Equivalent Scipy method.
+
+        Examples
+        --------
+        """
+        result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
+
+        for c, d in self.data.items():
+            result[c] = d
+        
+        return result
+
+
 
     def asformat(self, format):
         """
