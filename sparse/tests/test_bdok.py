@@ -74,6 +74,20 @@ def test_getitem():
 
         assert np.allclose(s[idx], x_b[idx])
 
+def test_setitem():
+    s = sparse.brandom((6, 6, 8), (2, 3, 4), 0.5, format='bdok')
+    x = s.todense()
+    x_b = s.to_bumpy()
+
+    shape = (3,2,2)
+    value = np.random.random((2,3,4))
+    idx = np.random.randint(np.prod(shape))
+    idx = np.unravel_index(idx, shape)
+
+    s[idx] = value
+    x_b[idx] = value
+
+    assert_eq(x_b.todense(), s.todense())
     
     
 if __name__ == '__main__':
@@ -81,3 +95,4 @@ if __name__ == '__main__':
     test_convert_to_numpy()
     test_convert_from_numpy()
     test_getitem()
+    test_setitem()

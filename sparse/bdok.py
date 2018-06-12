@@ -317,10 +317,15 @@ class BDOK(BSparseArray):
         self._setitem(key_list, value)
 
     def _setitem(self, key_list, value):
-        value_missing_dims = len([ind for ind in key_list if isinstance(ind, slice)]) - value.ndim
+        #value_missing_dims = len([ind for ind in key_list if isinstance(ind, slice)]) - value.ndim 
+        
+        # ZHC NOTE: here I think should be some additional treatment of slicing.
+        # currently only precise indexing is tested.
 
-        if value_missing_dims < 0:
-            raise ValueError('setting an array element with a sequence.')
+        #if value_missing_dims < 0:
+        #    raise ValueError('setting an array element with a sequence.')
+
+
 
         for i, ind in enumerate(key_list):
             if isinstance(ind, slice):
@@ -353,7 +358,8 @@ class BDOK(BSparseArray):
                                  ' when setting an item.')
 
         key = tuple(key_list)
-        if value != _zero_of_dtype(self.dtype):
+        #if value != _zero_of_dtype(self.dtype):
+        if not np.isclose(np.sum(np.abs(value)), 0.0):
             self.data[key] = value[()]
         elif key in self.data:
             del self.data[key]
