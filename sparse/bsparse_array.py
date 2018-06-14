@@ -28,6 +28,7 @@ class BSparseArray(SparseArray):
                              'of non-negative integers.')
 
         self.block_shape = tuple(int(l) for l in block_shape)
+        
 
         outer_shape, mod_shape = np.divmod(shape, block_shape)
         outer_shape = tuple(outer_shape)
