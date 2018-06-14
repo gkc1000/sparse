@@ -364,14 +364,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         if self.coords is not None:
             for i in range(self.coords.shape[1]):
                 result[tuple(self.coords[:, i])] = data[i]
-                print i
-                print data[i]
-                print self.coords[:, i]
-                print self.coords
         else:
             if len(data) != 0:
-                #result = bumpy.zeros(shape = self.outer_shape, block_shape = self.block_shape, data = data, block_dtype = dtype )
-                #for c, d in self.data.items():
                 result[coords] = data
 
 
