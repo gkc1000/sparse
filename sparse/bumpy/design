@@ -20,3 +20,10 @@ Write tests for 1.: use CTF/python array as starting point.
 			   - shape is tuple
 			   - block_shape is tuple of tuples
 			   - storage is ndarray
+
+
+
+Convention:
+    -ZHC suggestion:
+    1. shape, outer_shape, block_shape should be fixed as tuple type.
+    2. shape[i] = outer_shape[i] * block_shape[i]
