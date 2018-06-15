@@ -58,9 +58,6 @@ def test_getitem():
     x_b = s.to_bumpy()
     shape = (2,2,2)
 
-    #print s[0,0,0]
-    #print x_b[0,0,0]
-    #exit()
 
     #x = np.array([[1,-1,0,0],[1,-1,0,0],[2,2,3,3],[2,2,3,3]])
     #s = BDOK(x, (2, 2))
