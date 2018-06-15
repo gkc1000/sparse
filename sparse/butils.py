@@ -97,7 +97,10 @@ def brandom(
     data = data_rvs(nnz,*block_shape)
     bcoo_shape = list(block_shape)
     bcoo_shape[0] *= nnz
-    
+   
     ar = BCOO(blk_ind, data, bcoo_shape, block_shape=block_shape).reshape(shape, block_shape)
+    print BCOO(blk_ind, data, bcoo_shape, block_shape=block_shape).coords
+    print BCOO(blk_ind, data, bcoo_shape, block_shape=block_shape).data
+    exit()
 
     return ar.asformat(format)

@@ -22,11 +22,25 @@ def test_transpose(axes):
     assert_eq(xx, yy)
 
     # ZHC TODO: the brandom for bcoo format seems not correct.
-    # transpose for axes which break the block structure is not considered currently/
-    # the axes here have length len(block_shape)
 
+
+def test_block_reshape():
+    
+    a = np.array([[1, -1, 0, 0], [1 , -1 , 0, 0], [2,3 ,6,7], [4,5,8,9]])
+    x = BCOO.from_numpy(a, block_shape = (2,2))
+    y = x.todense()
+    
+    outer_shape_new = (1,4)
+    block_shape_new = (2,2) # unchanged
+    z = x.block_reshape(outer_shape_new, block_shape_new)
+
+    print "original matrix (2,2)"
+    print y
+    print "block reshaped matrix (1,4)"
+    print z.todense()
 
     
 if __name__ == '__main__':
     print "\n main test \n"
     test_transpose(None)
+    test_block_reshape()

@@ -1283,6 +1283,78 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             self._cache['reshape'].append((shape, result))
         return result
 
+
+    def block_reshape(self, outer_shape, block_shape = None):
+        """
+        Returns a new :obj:`BCOO` array that is a block reshaped version of this array.
+
+        Parameters
+        ----------
+        outer_shape : tuple[int]
+            The desired outer_shape of the output array.
+        block_shape : tuple [int]
+            The desired block_shape of the output array.
+            default is to have same block_shape as the original one.
+
+        Returns
+        -------
+        BCOO
+            The reshaped output array.
+
+        See Also
+        --------
+        numpy.ndarray.reshape : The equivalent Numpy function.
+
+        Examples
+        --------
+        """
+        if block_shape is None:
+            block_shape = self.block_shape
+
+
+        if any(d == -1 for d in outer_shape):
+            extra = int(self.size /
+                        np.prod([d for d in outer_shape if d != -1]))
+            outer_shape = tuple([d if d != -1 else extra for d in outer_shape])
+
+        if any(d == -1 for d in block_shape):
+            extra = int(self.size /
+                        np.prod([d for d in block_shape if d != -1]))
+            block_shape = tuple([d if d != -1 else extra for d in block_shape])
+
+        if self.outer_shape == outer_shape and self.block_shape == block_shape:
+            return self
+
+        if self._cache is not None: # ZHC NOTE to discuss
+            for sh, value in self._cache['reshape']:
+                if sh == outer_shape:
+                    return value
+
+        # TODO: this self.size enforces a 2**64 limit to array size
+        linear_loc = self.linear_loc()
+
+        #outer_shape, mod_shape = np.divmod(shape, block_shape)
+        
+        # only redetermine the indices, keep the data unchanged. should be efficient.
+        idx_1d = np.ravel_multi_index(self.coords, self.outer_shape)
+        coords_new = np.asarray(np.unravel_index(idx_1d, outer_shape))
+
+        # reshape the block data only if specifying block_shape
+        if block_shape != self.block_shape:
+            data = np.asarray([data_i.reshape(block_shape) for i, data_i in enumerate(self.data)]) # TODO: some optimization for memory
+        else:
+            data = self.data
+
+        shape = tuple(np.multiply(outer_shape, block_shape))
+
+        result = BCOO(coords_new, data, shape, block_shape,
+                     has_duplicates=False,
+                     sorted=True, cache=self._cache is not None)
+
+        if self._cache is not None:
+            self._cache['reshape'].append((outer_shape, result))
+        return result
+
     def to_scipy_sparse(self):
         """
         Converts this :obj:`COO` object into a :obj:`scipy.sparse.coo_matrix`.
