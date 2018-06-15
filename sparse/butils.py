@@ -67,6 +67,8 @@ def brandom(
     
     elements = np.prod(outer_shape)
 
+    outer_shape = tuple(outer_shape)
+
     nnz = int(elements * density)
 
     if random_state is None:
@@ -89,18 +91,11 @@ def brandom(
             selected.add(j)
             ind[i] = j
 
-    blk_ind = np.zeros([len(block_shape), nnz], ind.dtype)
-    blk_ind[0] = ind 
-    for i in range(1, len(block_shape)):
-        blk_ind[i] = [0]*nnz
-        
+
     data = data_rvs(nnz,*block_shape)
-    bcoo_shape = list(block_shape)
-    bcoo_shape[0] *= nnz
-   
-    ar = BCOO(blk_ind, data, bcoo_shape, block_shape=block_shape).reshape(shape, block_shape)
-    print BCOO(blk_ind, data, bcoo_shape, block_shape=block_shape).coords
-    print BCOO(blk_ind, data, bcoo_shape, block_shape=block_shape).data
-    exit()
+
+    blk_ind = np.asarray(np.unravel_index(ind, outer_shape))
+    
+    ar = BCOO(blk_ind, data, shape, block_shape=block_shape).block_reshape(outer_shape, block_shape)
 
     return ar.asformat(format)

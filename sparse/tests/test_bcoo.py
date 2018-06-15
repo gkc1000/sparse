@@ -7,6 +7,13 @@ from sparse import BDOK
 from sparse import BCOO
 from sparse.utils import assert_eq
 
+def test_brandom():
+    x = sparse.brandom((4, 2, 6), (2, 1, 2), 0.5, format='bcoo')
+    y = x.todense()
+    assert_eq(x, y)
+    
+
+
 
 def test_transpose(axes):
     #x = sparse.brandom((2, 3, 4),  ,density=.25)
@@ -42,5 +49,6 @@ def test_block_reshape():
     
 if __name__ == '__main__':
     print "\n main test \n"
+    test_brandom()
     test_transpose(None)
     test_block_reshape()
