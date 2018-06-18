@@ -117,7 +117,6 @@ def test_init_from_numpy():
 
 
 def test_einsum():
-    print "\nmain program\n"
     #a = bndarray((3,1,2), (2,4,7)) 
     #a = bndarray((1,2), (2,4))
     a = random((3,5), (2,5))

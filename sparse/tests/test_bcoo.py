@@ -28,7 +28,6 @@ def test_transpose(axes):
 
     assert_eq(xx, yy)
 
-    # ZHC TODO: the brandom for bcoo format seems not correct.
 
 
 def test_block_reshape():
@@ -46,9 +45,20 @@ def test_block_reshape():
     print "block reshaped matrix (1,4)"
     print z.todense()
 
+def test_tobsr():
+    data = np.arange(1,7).repeat(4).reshape((-1,2,2))
+    coords = np.array([[0,0,0,2,1,2],[0,1,1,0,2,2]])
+    block_shape = (2,2)
+    shape = (8,6)
+    x = BCOO(coords, data=data, shape=shape, block_shape=block_shape) 
+    y = x.todense()
+    z = x.tobsr()
+    assert_eq(z, y)
+
     
 if __name__ == '__main__':
     print "\n main test \n"
     test_brandom()
     test_transpose(None)
     test_block_reshape()
+    test_tobsr()
