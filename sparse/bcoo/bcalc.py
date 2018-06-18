@@ -157,11 +157,12 @@ def einsum(idx_str, *tensors, **kwargs):
         idxCt.append(idx)
     new_orderCt = [idxCt.index(idx) for idx in idxC]
 
+    np_shapeCt = tuple(np.multiply(shapeCt, block_shapeCt))
     if A.nnz == 0 or B.nnz == 0:
         shapeCt = [shapeCt[i] for i in new_orderCt]
         block_shapeCt = [block_shapeCt[i] for i in new_orderCt]
         return BCOO(np.array([],dtype = np.int), data = np.array([], dtype = \
-                    np.result_type(A.dtype,B.dtype)), shape=np.multiply(shapeCt, block_shapeCt),\
+                    np.result_type(A.dtype,B.dtype)), shape=np_shapeCt,\
                     block_shape = block_shapeCt, has_duplicates=False,\
                     sorted=True).transpose(new_orderCt)
 
