@@ -247,6 +247,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         if has_duplicates:
             self._sum_duplicates()
+        
+        self.has_canonical_format = True # ZHC NOTE currently we always assume the format is canonical
 
     def _make_shallow_copy_of(self, other):
         self.coords = other.coords
@@ -360,6 +362,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
 
         data = self.data
+        
 
         if self.coords is not None:
             for i in range(self.coords.shape[1]):
@@ -367,7 +370,6 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         else:
             if len(data) != 0:
                 result[coords] = data
-
 
         return result.todense()
 
@@ -1051,7 +1053,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         #data_T = np.asarray(list(self.data)).transpose(data_trans_axes) # ZHC NOTE the storage of self.data should be an array of shape (block_nnz, *(block_shape))
         data_T = self.data.transpose(data_trans_axes) 
 
-
+        # there is no duplicates, but is not sorted
         result = BCOO(self.coords[axes, :], data_T, shape, \
                      block_shape = block_shape, has_duplicates=False, \
                      cache=self._cache is not None)
@@ -1348,6 +1350,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         shape = tuple(np.multiply(outer_shape, block_shape))
 
         # ZHC NOTE consider not to copy?
+        # already no duplicates and sorted
         result = BCOO(coords_new, data, shape, block_shape,
                      has_duplicates=False,
                      sorted=True, cache=self._cache is not None)
@@ -1490,10 +1493,10 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         """
         assert isinstance(x, scipy.sparse.bsr.bsr_matrix)
         
+        x.sum_duplicates() # ZHC NOTE necessary?
+
         shape = x.shape
         block_shape = x.blocksize
-        data = x.data
-        col = x.indices
         
         indptr_diff = np.diff(x.indptr)
         if indptr_diff.dtype.itemsize > np.dtype(np.intp).itemsize:
@@ -1504,9 +1507,12 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             indptr_diff = indptr_diff_limited
 
         row = (np.arange(shape[0]//block_shape[0])).repeat(indptr_diff)
-        
+        col = x.indices
+        data = x.data
+      
         coords = np.vstack((row, col))
-        
+
+        # already no duplicates and sorted
         return cls(coords, data, shape = shape, block_shape = block_shape, has_duplicates=False,
                    sorted=True)
 
@@ -1522,6 +1528,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         np.cumsum(np.bincount(row, minlength = self.outer_shape[0]), out = indptr[1:])
 
         return scipy.sparse.bsr_matrix((self.data, col, indptr), shape = self.shape, blocksize = self.block_shape)
+        
 
     def tobsr(self):
         """
@@ -1542,6 +1549,9 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         BCOO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
         BCOO.to_scipy_sparse : Convert to a :obj:`scipy.sparse.coo_matrix`.
         """
+        # ZHC NOTE currently need the canonical format to convert
+        assert(self.has_canonical_format)
+
         if self._cache is not None:
             try:
                 return self._bsr
@@ -1551,6 +1561,10 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             self._bsr = bsr = self._tobsr()
         else:
             bsr = self._tobsr()
+
+        bsr.has_sorted_indices = True
+        bsr.has_canonical_format = True
+
         return bsr
 
 
