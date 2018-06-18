@@ -19,7 +19,7 @@ class BSparseArray(SparseArray):
 
     def __init__(self, shape, block_shape):
         SparseArray.__init__(self, shape)
-        
+
         if not isinstance(block_shape, Iterable):
             block_shape = (block_shape,)
 
@@ -28,8 +28,10 @@ class BSparseArray(SparseArray):
                              'of non-negative integers.')
 
         self.block_shape = tuple(int(l) for l in block_shape)
-        
 
+        if len(shape) != len(block_shape):
+            raise ValueError('shape and block_shape must have the same dimension.',
+                             shape, block_shape)
         outer_shape, mod_shape = np.divmod(shape, block_shape)
         outer_shape = tuple(outer_shape)
 

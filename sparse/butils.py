@@ -64,7 +64,7 @@ def brandom(
     from .bcoo import BCOO
 
     outer_shape, mod_shape = np.divmod(shape, block_shape)
-    
+
     elements = np.prod(outer_shape)
 
     outer_shape = tuple(outer_shape)
@@ -91,11 +91,11 @@ def brandom(
             selected.add(j)
             ind[i] = j
 
-
     data = data_rvs(nnz,*block_shape)
 
     blk_ind = np.asarray(np.unravel_index(ind, outer_shape))
-    
+
     ar = BCOO(blk_ind, data, shape, block_shape=block_shape).block_reshape(outer_shape, block_shape)
 
     return ar.asformat(format)
+

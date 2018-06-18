@@ -1,5 +1,5 @@
 import numpy as np
-import bumpy
+from . import bumpy
 import re
 # Copied from pyscf.lib.einsum,
 # to avoid importing tblis_einsum

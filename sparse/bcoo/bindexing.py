@@ -11,7 +11,7 @@ from ..utils import _zero_of_dtype
 
 def getitem(x, index):
     """
-    This function implements the indexing functionality for COO.
+    This function implements the indexing functionality for BCOO.
 
     The overall algorithm has three steps:
 
@@ -22,12 +22,12 @@ def getitem(x, index):
 
     Parameters
     ----------
-    x : COO
+    x : BCOO
         The array to apply the indexing operation on.
     index : {tuple, str}
         The index into the array.
     """
-    from .core import COO
+    from .bcore import BCOO
 
     # If string, this is an index into an np.void
     # Custom dtype.
@@ -37,10 +37,10 @@ def getitem(x, index):
         coords = list(x.coords[:, idx[0]])
         coords.extend(idx[1:])
 
-        return COO(coords, data[idx].flatten(),
-                   shape=x.shape + x.data.dtype[index].shape,
-                   has_duplicates=False,
-                   sorted=True)
+        return BCOO(coords, data[idx].flatten(),
+                    shape=x.shape + x.data.dtype[index].shape,
+                    has_duplicates=False,
+                    sorted=True)
 
     # Otherwise, convert into a tuple.
     if not isinstance(index, tuple):
@@ -67,6 +67,7 @@ def getitem(x, index):
 
     coords = []
     shape = []
+    block_shape = []
     i = 0
     for ind in index:
         # Nothing is added to shape or coords if the index is an integer.
@@ -76,6 +77,7 @@ def getitem(x, index):
         # Add to the shape and transform the coords in the case of a slice.
         elif isinstance(ind, slice):
             shape.append(len(range(ind.start, ind.stop, ind.step)))
+            #?block_shape.append()
             dt = np.min_scalar_type(min(-(dim - 1) if dim != 0 else -1 for dim in shape))
             coords.append((x.coords[i, mask].astype(dt) - ind.start) // ind.step)
             i += 1
@@ -83,8 +85,9 @@ def getitem(x, index):
             raise NotImplementedError('Advanced indexing is not yet supported.')
         # Add a dimension for None.
         elif ind is None:
-            coords.append(np.zeros(n))
+            coords.append(np.zeros(n, dtype=coords.dtype))
             shape.append(1)
+            block_shape.append(1)
 
     # Join all the transformed coords.
     if coords:
@@ -101,11 +104,131 @@ def getitem(x, index):
                 return _zero_of_dtype(x.dtype)[()]
 
     shape = tuple(shape)
+    block_shape = tuple(block_shape)
     data = x.data[mask]
 
-    return COO(coords, data, shape=shape,
+    return BCOO(coords, data, shape=shape,
                has_duplicates=False,
                sorted=True)
+
+def setitem(x, index, value):
+    raise NotImplementedError
+
+
+def getblock(x, index):
+    """
+    This function implements the functionality to index BCOO blocks.
+
+    Parameters
+    ----------
+    x : BCOO
+        The array to apply the indexing operation on.
+    index : {tuple, str}
+        The index into the array.
+    """
+    from .bcore import BCOO
+
+    # If string, this is an index into an np.void Custom dtype.
+    if isinstance(index, str):
+        data = x.data[index]
+        dtype_shape = x.data.dtype[index].shape
+        coords = x.coords
+        shape = x.shape
+        block_shape = x.block_shape
+
+        if dtype_shape:
+            loc0 = np.zeros(coords.shape[1], dtype=coords.dtype)
+            coords = np.vstack([coords, (loc0,)*len(dtype_shape)])
+            shape = shape + dtype_shape
+            block_shape = block_shape + dtype_shape
+
+        b = BCOO(coords, data,
+                 shape=shape, block_shape=block_shape,
+                 has_duplicates=False,
+                 sorted=True)
+
+        if dtype_shape:
+            if x._offset is not None:
+                b._offset = x._offset + (0,)*len(dtype_shape)
+            if x._last_block_shape is not None:
+                b._last_block_shape = x._last_block_shape + dtype_shape
+
+        return b
+
+    # Otherwise, convert into a tuple.
+    if not isinstance(index, tuple):
+        index = (index,)
+
+    # Check if the last index is an ellipsis.
+    last_ellipsis = len(index) > 0 and index[-1] is Ellipsis
+
+    # Normalize the index into canonical form.
+    index = normalize_index(index, x.outer_shape)
+
+    # zip_longest so things like x[..., None] are picked up.
+    if len(index) != 0 and all(ind == slice(0, dim, 1)
+                               for ind, dim in zip_longest(index, x.outer_shape)):
+        return x
+
+    # Get the mask
+    mask = _mask(x.coords, index, x.outer_shape)
+
+    # Get the length of the mask
+    if isinstance(mask, slice):
+        n = len(range(mask.start, mask.stop, mask.step))
+    else:
+        n = len(mask)
+
+    coords = []
+    outer_shape = []
+    block_shape = []
+    i = 0
+    for ind in index:
+        # Nothing is added to shape or coords if the index is an integer.
+        if isinstance(ind, Integral):
+            outer_shape.append(1)
+            block_shape.append(x.block_shape[i])
+            coords.append(np.zeros(n, dtype=x.coords.dtype))
+            i += 1
+        # Add to the shape and transform the coords in the case of a slice.
+        elif isinstance(ind, slice):
+            outer_shape.append(len(range(ind.start, ind.stop, ind.step)))
+            block_shape.append(x.block_shape[i])
+            coords.append((x.coords[i, mask].astype(int) - ind.start) // ind.step)
+            i += 1
+        elif isinstance(ind, Iterable):
+            raise NotImplementedError('Advanced indexing is not yet supported.')
+        # Add a dimension for None.
+        elif ind is None:
+            coords.append(np.zeros(n, dtype=x.coords.dtype))
+            outer_shape.append(1)
+            block_shape.append(1)
+
+    # Join all the transformed coords.
+    if coords:
+        coords = np.stack(coords, axis=0)
+    else:
+        # If index result is a scalar, return a 0-d BCOO or
+        # a block depending on whether the last index is an ellipsis.
+        if last_ellipsis:
+            #raise RuntimeError("bsparse does not support 0-D BCOO")
+            coords = np.empty((0, n), dtype=np.uint8)
+        else:  # scalar
+            if n != 0:
+                return x.data[mask][0]
+            else:
+                return np.zeros((x.block_shape), dtype=x.dtype)
+
+    block_shape = tuple(block_shape)
+    shape = tuple([x*y for x, y in zip(outer_shape, block_shape)])
+    data = x.data[mask].reshape((-1,) + block_shape)
+
+    return BCOO(coords, data, shape=shape, block_shape=block_shape,
+                has_duplicates=False,
+                sorted=True)
+
+def setblock(x, index, value):
+    raise NotImplementedError
 
 
 def _mask(coords, indices, shape):

@@ -2,7 +2,7 @@ from numbers import Integral
 
 import numpy as np
 
-import bumpy  
+from . import bumpy
 
 from .slicing import normalize_index
 from .utils import _zero_of_dtype
