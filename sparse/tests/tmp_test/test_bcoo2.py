@@ -12,11 +12,7 @@ def test_brandom():
     y = x.todense()
     assert_eq(x, y)
     
-def test_from_numpy():
-    #a = np.random.random((6,5,4,1))
-    a = np.zeros((6,5,4,1))
-    x = BCOO.from_numpy(a, block_shape = (2,5,2,1))
-    assert_eq(a,x)
+
 
 
 def test_transpose(axes):
@@ -54,16 +50,45 @@ def test_tobsr():
     coords = np.array([[0,0,0,2,1,2],[0,1,1,0,2,2]])
     block_shape = (2,2)
     shape = (8,6)
-    x = BCOO(coords, data=data, shape=shape, block_shape=block_shape) 
+    print coords
+    print data
+    #x = BCOO(coords, data=data, shape=shape, block_shape=block_shape, sorted = True, has_duplicates = False) 
+    x = BCOO(coords, data=data, shape=shape, block_shape=block_shape, sorted = True, has_duplicates = False) 
     y = x.todense()
+    #print y
+    #print x.coords
     z = x.tobsr()
+    #print z.data
+    #print z.has_canonical_format
+    #print z.has_sorted_indices
+    x2 = BCOO(coords.copy(), data=data.copy(), shape=shape, block_shape=block_shape, sorted = False, has_duplicates =
+            True) 
+    y2 = x2.todense()
+    print y
+    print y2
+    print x.coords
+    print x2.coords
+    #print y
+    #print x.coords
+    z2 = x2.tobsr()
+    #print z2.data
+    print z.has_canonical_format
+    print z.has_sorted_indices
+    print z2.has_canonical_format
+    print z2.has_sorted_indices
+    #print "z"
+    print z.toarray()
+    #print "z2"
+    print z2.toarray()
+    #assert_eq(z,z2)
+
+    exit()
     assert_eq(z, y)
 
     
 if __name__ == '__main__':
     print "\n main test \n"
     test_brandom()
-    test_from_numpy()
     test_transpose(None)
     test_block_reshape()
     test_tobsr()

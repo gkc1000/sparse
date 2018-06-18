@@ -157,12 +157,14 @@ def einsum(idx_str, *tensors, **kwargs):
         idxCt.append(idx)
     new_orderCt = [idxCt.index(idx) for idx in idxC]
 
-    if A.size == 0 or B.size == 0:
+    np_shapeCt = tuple(np.multiply(shapeCt, block_shapeCt))
+    if A.nnz == 0 or B.nnz == 0:
         shapeCt = [shapeCt[i] for i in new_orderCt]
         block_shapeCt = [block_shapeCt[i] for i in new_orderCt]
-        #return bumpy.zeros(shapeCt, block_shapeCt,
-        #                    block_dtype=numpy.result_type(A.block_dtype,B.block_dtype))
-        # ZHC TODO return a zero bcoo object
+        return BCOO(np.array([],dtype = np.int), data = np.array([], dtype = \
+                    np.result_type(A.dtype,B.dtype)), shape=np_shapeCt,\
+                    block_shape = block_shapeCt, has_duplicates=False,\
+                    sorted=True).transpose(new_orderCt)
 
     At = A.transpose(new_orderA)
     Bt = B.transpose(new_orderB)
@@ -247,6 +249,8 @@ if __name__ == '__main__':
     '''
 
     print "results comparision:"
+    #print c
+    #print c.todense()
     print np.allclose(elemC, c.todense())
     
 
