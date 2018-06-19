@@ -360,6 +360,9 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         True
         """
 
+        if not (self._offset is None and self._last_block_shape is None):
+            raise NotImplementedError("Offset and boundary are not supported.")
+
         result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
 
         data = self.data
@@ -607,10 +610,10 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         return self.nbytes
 
     __getitem__ = getitem
-    #__setitem__ = setitem
+    __setitem__ = setitem
 
     getblock = getblock
-    #setblock = setblock
+    setblock = setblock
 
     def __str__(self):
         return "<BCOO: shape=%s, block_shape=%s, dtype=%s, nnz=%d, block_nnz=%d>" % (self.shape, self.block_shape, self.dtype, self.nnz, self.block_nnz)

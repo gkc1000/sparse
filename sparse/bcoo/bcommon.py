@@ -33,6 +33,7 @@ def asCOO(x, name='asCOO', check=True):
     ValueError
         If ``check`` is true and a dense input is supplied.
     """
+    raise NotImplementedError
     from .core import COO
 
     if check and not isinstance(x, (SparseArray, scipy.sparse.spmatrix)):
