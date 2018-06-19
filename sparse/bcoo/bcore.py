@@ -250,13 +250,15 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         if has_duplicates:
             self._sum_duplicates()
-        
+
         self.has_canonical_format = True # ZHC NOTE currently we always assume the format is canonical
 
     def _make_shallow_copy_of(self, other):
         self.coords = other.coords
         self.data = other.data
         super(BCOO, self).__init__(other.shape, other.block_shape)
+        self._offset = other._offset
+        self._last_block_shape = other._last_block_shape
 
     def enable_caching(self):
         """ Enable caching of reshape, transpose, and tocsr/csc operations
@@ -368,7 +370,6 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
 
         data = self.data
-        
 
         if self.coords is not None:
             for i in range(self.coords.shape[1]):
@@ -1396,6 +1397,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         BCOO.tocsr : Convert to a :obj:`scipy.sparse.csr_matrix`.
         BCOO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
         """
+        raise NotImplementedError
         if self.ndim != 2:
             raise ValueError("Can only convert a 2-dimensional array to a Scipy sparse matrix.")
 
