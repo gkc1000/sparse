@@ -8,7 +8,7 @@ from numpy.lib.mixins import NDArrayOperatorsMixin
 from ..bumpy import bumpy
 
 from .bcommon import dot
-from .bindexing import getitem
+from .bindexing import getitem, setitem, getblock, setblock
 from .bumath import elemwise, broadcast_to
 from ..compatibility import int, range
 #from ..sparse_array import SparseArray
@@ -192,7 +192,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
     def __init__(self, coords, data=None, shape=None, block_shape=None,
                  has_duplicates=True,
-                 sorted=False, cache=False): 
+                 sorted=False, cache=False):
         self._cache = None
         if cache:
             self.enable_caching()
@@ -209,13 +209,13 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             self.coords = self.coords[None, :]
 
         if self.data.ndim == 0:
-            self.data = np.broadcast_to(self.data, [self.coords.shape[1]] + list(block_shape)) # ZHC NOTE block_shape should be list? 
-        
+            self.data = np.broadcast_to(self.data, [self.coords.shape[1]] + list(block_shape)) # ZHC NOTE block_shape should be list?
+
 
         if shape and not self.coords.size:
             self.coords = np.zeros((len(shape), 0), dtype=np.uint64)
-        
-        # default block_shape, a tuple with all 1. 
+
+        # default block_shape, a tuple with all 1.
         if block_shape is None:
             if self.coords.nbytes:
                 _outer_shape = tuple((self.coords.max(axis=1) + 1)) # is actually outer_shape here
@@ -226,10 +226,13 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         if shape is None:
             if self.coords.nbytes:
                 _outer_shape = tuple((self.coords.max(axis=1) + 1)) # is actually outer_shape here
-                shape = tuple(np.asarray(_outer_shape) * np.asarray(block_shape)) # real shape 
+                shape = tuple(np.asarray(_outer_shape) * np.asarray(block_shape)) # real shape
             else:
                 shape = ()
-        
+
+        self._offset = None
+
+        self._last_block_shape = None
 
 
         super(BCOO, self).__init__(shape, block_shape)
@@ -247,13 +250,15 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         if has_duplicates:
             self._sum_duplicates()
-        
+
         self.has_canonical_format = True # ZHC NOTE currently we always assume the format is canonical
 
     def _make_shallow_copy_of(self, other):
         self.coords = other.coords
         self.data = other.data
         super(BCOO, self).__init__(other.shape, other.block_shape)
+        self._offset = other._offset
+        self._last_block_shape = other._last_block_shape
 
     def enable_caching(self):
         """ Enable caching of reshape, transpose, and tocsr/csc operations
@@ -319,18 +324,18 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
                 raise RuntimeError('Shape and block_shape are not multiples')
 
             # first convert to bndarray
-            ba = bumpy.bndarray(shape = outer_shape, block_shape = block_shape, data = x) 
+            ba = bumpy.bndarray(shape = outer_shape, block_shape = block_shape, data = x)
             sum_x = np.zeros(outer_shape)
             for ix in np.ndindex(sum_x.shape):
                 sum_x[ix] = np.sum(np.abs(ba[ix]))
-            
+
             coords = np.nonzero(sum_x)
             data = np.asarray(list(ba[coords]))
             coords = np.vstack(coords)
         else:
             coords = np.empty((0, 1), dtype=np.uint8)
             data = np.array(x, ndmin=1)
-        
+
         return cls(coords, data, shape=x.shape, block_shape = block_shape, has_duplicates=False,
                    sorted=True)
 
@@ -358,11 +363,13 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         >>> np.array_equal(x, x2)
         True
         """
-        
+
+        if not (self._offset is None and self._last_block_shape is None):
+            raise NotImplementedError("Offset and boundary are not supported.")
+
         result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
 
         data = self.data
-        
 
         if self.coords is not None:
             for i in range(self.coords.shape[1]):
@@ -516,8 +523,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
     @property
     def nnz(self):
         """
-        The number of nonzero elements in this array. Note that any duplicates in
-        :code:`coords` are counted multiple times. To avoid this, call :obj:`BCOO.sum_duplicates`.
+        The number of nonzero elements in this array.
 
         Returns
         -------
@@ -545,8 +551,17 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
     @property
     def block_nnz(self):
+        """
+        The number of nonzero blocks. Note that any duplicates in
+        :code:`coords` are counted multiple times. To avoid this, call :obj:`BCOO.sum_duplicates`.
+
+        Returns
+        -------
+        int
+            The number of non-zero blocks.
+        """
         return self.coords.shape[1]
-    
+
     @property
     def nbytes(self):
         """
@@ -599,6 +614,10 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         return self.nbytes
 
     __getitem__ = getitem
+    __setitem__ = setitem
+
+    getblock = getblock
+    setblock = setblock
 
     def __str__(self):
         return "<BCOO: shape=%s, block_shape=%s, dtype=%s, nnz=%d, block_nnz=%d>" % (self.shape, self.block_shape, self.dtype, self.nnz, self.block_nnz)
@@ -1051,7 +1070,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         block_shape = tuple(self.block_shape[ax] for ax in axes)
         data_trans_axes = np.array([-1] + list(axes)) + 1
         #data_T = np.asarray(list(self.data)).transpose(data_trans_axes) # ZHC NOTE the storage of self.data should be an array of shape (block_nnz, *(block_shape))
-        data_T = self.data.transpose(data_trans_axes) 
+        data_T = self.data.transpose(data_trans_axes)
 
         # there is no duplicates, but is not sorted
         result = BCOO(self.coords[axes, :], data_T, shape, \
@@ -1276,7 +1295,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             strides *= d
 
         data = np.reshape(self.data, tuple([self.data.shape[0]] + list(block_shape)))
-        
+
         result = BCOO(coords, data, shape, block_shape,
                      has_duplicates=False,
                      sorted=True, cache=self._cache is not None)
@@ -1336,7 +1355,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         linear_loc = self.linear_loc()
 
         #outer_shape, mod_shape = np.divmod(shape, block_shape)
-        
+
         # only redetermine the indices, keep the data unchanged. should be efficient.
         idx_1d = np.ravel_multi_index(self.coords, self.outer_shape)
         coords_new = np.asarray(np.unravel_index(idx_1d, outer_shape))
@@ -1378,6 +1397,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         BCOO.tocsr : Convert to a :obj:`scipy.sparse.csr_matrix`.
         BCOO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
         """
+        raise NotImplementedError
         if self.ndim != 2:
             raise ValueError("Can only convert a 2-dimensional array to a Scipy sparse matrix.")
 
@@ -1822,13 +1842,13 @@ def as_bcoo(x, shape=None, block_shape=None):
         return x.asformat('bcoo')
 
     if isinstance(x, np.ndarray):
-        return BCOO.from_numpy(x)
+        return BCOO.from_numpy(x, block_shape)
 
     if isinstance(x, scipy.sparse.spmatrix):
         return BCOO.from_scipy_sparse(x)
 
     if isinstance(x, (Iterable, Iterator)):
-        return BCOO.from_iter(x, shape=shape)
+        return BCOO.from_iter(x, shape=shape, block_shape=block_shape)
 
     raise NotImplementedError('Format not supported for conversion. Supplied type is '
                               '%s, see help(sparse.as_coo) for supported formats.' % type(x))

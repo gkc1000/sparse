@@ -45,7 +45,7 @@ def elemwise(func, *args, **kwargs):
     it is necessary to convert Numpy arrays to :obj:`COO` objects.
     """
     # Because we need to mutate args.
-    from .core import COO
+    from .bcore import BCOO
     from ..sparse_array import SparseArray
 
     args = list(args)
