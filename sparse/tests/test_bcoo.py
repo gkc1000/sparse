@@ -14,6 +14,11 @@ def test_brandom():
     y = x.todense()
     assert_eq(x, y)
 
+def test_from_numpy():
+    #a = np.random.random((6,5,4,1))
+    a = np.zeros((6,5,4,1))
+    x = BCOO.from_numpy(a, block_shape = (2,5,2,1))
+    assert_eq(a,x)
 
 def test_zero_size():
     x = sparse.brandom((0,0,0), (2,2,2))
@@ -109,8 +114,21 @@ def test_todense():
     x.todense()
 
 
+def test_tobsr():
+    data = np.arange(1,7).repeat(4).reshape((-1,2,2))
+    coords = np.array([[0,0,0,2,1,2],[0,1,1,0,2,2]])
+    block_shape = (2,2)
+    shape = (8,6)
+    x = BCOO(coords, data=data, shape=shape, block_shape=block_shape) 
+    y = x.todense()
+    z = x.tobsr()
+    assert_eq(z, y)
+
+
 if __name__ == '__main__':
     print("\n main test \n")
-    #test_brandom()
-    #test_transpose(None)
-    #test_block_reshape()
+    test_brandom()
+    test_from_numpy()
+    test_transpose(None)
+    test_block_reshape()
+    test_tobsr()

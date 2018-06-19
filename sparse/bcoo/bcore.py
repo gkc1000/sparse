@@ -250,6 +250,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         if has_duplicates:
             self._sum_duplicates()
+        
+        self.has_canonical_format = True # ZHC NOTE currently we always assume the format is canonical
 
     def _make_shallow_copy_of(self, other):
         self.coords = other.coords
@@ -366,6 +368,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         result = bumpy.zeros(self.outer_shape, self.block_shape, dtype = self.dtype)
 
         data = self.data
+        
 
         if self.coords is not None:
             for i in range(self.coords.shape[1]):
@@ -1068,7 +1071,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         #data_T = np.asarray(list(self.data)).transpose(data_trans_axes) # ZHC NOTE the storage of self.data should be an array of shape (block_nnz, *(block_shape))
         data_T = self.data.transpose(data_trans_axes)
 
-
+        # there is no duplicates, but is not sorted
         result = BCOO(self.coords[axes, :], data_T, shape, \
                      block_shape = block_shape, has_duplicates=False, \
                      cache=self._cache is not None)
@@ -1330,12 +1333,12 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
 
         if any(d == -1 for d in outer_shape):
-            extra = int(self.size /
+            extra = int(self.size / int(np.prod(self.block_shape)) /
                         np.prod([d for d in outer_shape if d != -1]))
             outer_shape = tuple([d if d != -1 else extra for d in outer_shape])
 
         if any(d == -1 for d in block_shape):
-            extra = int(self.size /
+            extra = int(self.size / int(np.prod(self.outer_shape)) /
                         np.prod([d for d in block_shape if d != -1]))
             block_shape = tuple([d if d != -1 else extra for d in block_shape])
 
@@ -1364,6 +1367,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         shape = tuple(np.multiply(outer_shape, block_shape))
 
+        # ZHC NOTE consider not to copy?
+        # already no duplicates and sorted
         result = BCOO(coords_new, data, shape, block_shape,
                      has_duplicates=False,
                      sorted=True, cache=self._cache is not None)
@@ -1485,6 +1490,101 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             csc = self.tocsr().tocsc()
 
         return csc
+
+    @classmethod
+    def from_bsr(cls, x):
+        """
+        Convert the given :obj:`scipy.bsr_matrix` to a :obj:`BCOO` object.
+
+        Parameters
+        ----------
+        x : scipy.bsr_matrix
+            The bsr_matrix to convert.
+
+        Returns
+        -------
+        BCOO
+            The converted BCOO array.
+
+        Examples
+        --------
+        """
+        assert isinstance(x, scipy.sparse.bsr.bsr_matrix)
+        
+        x.sum_duplicates() # ZHC NOTE necessary?
+
+        shape = x.shape
+        block_shape = x.blocksize
+        
+        indptr_diff = np.diff(x.indptr)
+        if indptr_diff.dtype.itemsize > np.dtype(np.intp).itemsize:
+            # Check for potential overflow
+            indptr_diff_limited = indptr_diff.astype(np.intp)
+            if np.any(indptr_diff_limited != indptr_diff):
+                raise ValueError("Matrix too big to convert")
+            indptr_diff = indptr_diff_limited
+
+        row = (np.arange(shape[0]//block_shape[0])).repeat(indptr_diff)
+        col = x.indices
+        data = x.data
+      
+        coords = np.vstack((row, col))
+
+        # already no duplicates and sorted
+        return cls(coords, data, shape = shape, block_shape = block_shape, has_duplicates=False,
+                   sorted=True)
+
+    def _tobsr(self):
+        if self.ndim != 2:
+            raise ValueError('This array must be two-dimensional for this conversion '
+                             'to work.')
+        row, col = self.coords
+
+        # ZHC NOTE : here we assume the coords are sorted and no duplicates. 
+        # Pass 3: count nonzeros in each row
+        indptr = np.zeros(self.outer_shape[0] + 1, dtype = np.int64)
+        np.cumsum(np.bincount(row, minlength = self.outer_shape[0]), out = indptr[1:])
+
+        return scipy.sparse.bsr_matrix((self.data, col, indptr), shape = self.shape, blocksize = self.block_shape)
+        
+
+    def tobsr(self):
+        """
+        Converts this array to a :obj:`scipy.sparse.bsr_matrix`.
+
+        Returns
+        -------
+        scipy.sparse.bsr_matrix
+            The result of the conversion.
+
+        Raises
+        ------
+        ValueError
+            If the array is not two-dimensional.
+
+        See Also
+        --------
+        BCOO.tocsc : Convert to a :obj:`scipy.sparse.csc_matrix`.
+        BCOO.to_scipy_sparse : Convert to a :obj:`scipy.sparse.coo_matrix`.
+        """
+        # ZHC NOTE currently need the canonical format to convert
+        assert(self.has_canonical_format)
+
+        if self._cache is not None:
+            try:
+                return self._bsr
+            except AttributeError:
+                pass
+
+            self._bsr = bsr = self._tobsr()
+        else:
+            bsr = self._tobsr()
+
+        bsr.has_sorted_indices = True
+        bsr.has_canonical_format = True
+
+        return bsr
+
 
     def _sort_indices(self):
         """
