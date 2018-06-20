@@ -1358,11 +1358,12 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
         # only redetermine the indices, keep the data unchanged. should be efficient.
         idx_1d = np.ravel_multi_index(self.coords, self.outer_shape)
-        coords_new = np.asarray(np.unravel_index(idx_1d, outer_shape))
+        coords_new = np.stack(np.unravel_index(idx_1d, outer_shape))
 
         # reshape the block data only if specifying block_shape
         if block_shape != self.block_shape:
-            data = np.asarray([data_i.reshape(block_shape) for i, data_i in enumerate(self.data)]) # TODO: some optimization for memory
+            #data = np.asarray([data_i.reshape(block_shape) for i, data_i in enumerate(self.data)]) # TODO: some optimization for memory
+            data = self.data.reshape((-1,) + tuple(block_shape))
         else:
             data = self.data
 
@@ -1513,7 +1514,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         """
         assert isinstance(x, scipy.sparse.bsr.bsr_matrix)
         
-        x.sum_duplicates() # ZHC NOTE necessary?
+        #x.sum_duplicates() # ZHC NOTE necessary?
+        x.sort_indices() # ZHC NOTE necessary?
 
         shape = x.shape
         block_shape = x.blocksize

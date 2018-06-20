@@ -180,7 +180,10 @@ def einsum(idx_str, *tensors, **kwargs):
     # else:
     Bt = Bt.block_reshape((inner_shape,-1), block_shape = (block_inner_shape,-1))
 
-    AdotB = At.tobsr().dot(Bt.tobsr())
+    #AdotB = At.tobsr().dot(Bt.tobsr())
+    At = At.tobsr()
+    Bt = Bt.tobsr()
+    AdotB = At.dot(Bt)
     
     AdotB_bcoo = BCOO.from_bsr(AdotB)
     
