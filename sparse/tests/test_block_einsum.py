@@ -161,17 +161,33 @@ def test_einsum_shape_error():
         #assert_eq(elemC, c)
 
 
-def test_einsum_mix_types():
+def test_einsum_zeros():
     shape_x = (5,1,4,2,3)
     block_shape_x = (1,1,2,2,3)
     x = sparse.bcoo.zeros(shape_x, np.complex, block_shape_x)
-    x.data[:] = np.random.random(x.data.shape) + 1j
     x_d = x.todense()
 
     shape_y = (5,1,11)
     block_shape_y = (1,1,1)
     y = sparse.bcoo.zeros(shape_y, np.float32, block_shape_y)
-    y.data[:] = np.random.random(y.data.shape).astype(np.float32)
+    y_d = y.todense()
+
+    c= bcalc.einsum('ijklm,ijn->lnmk', x, y)
+    elemC = np.einsum('ijklm,ijn->lnmk', x_d, y_d)
+    assert_eq(elemC, c)
+
+
+def test_einsum_mix_types():
+    shape_x = (5,1,4,2,3)
+    block_shape_x = (1,1,2,2,3)
+    x = sparse.brandom(shape_x, block_shape_x, 0.5)
+    x.data = x.data + 1j
+    x_d = x.todense()
+
+    shape_y = (5,1,11)
+    block_shape_y = (1,1,1)
+    y = sparse.brandom(shape_y, block_shape_y, 0.5)
+    y.data = y.data.astype(np.float32)
     y_d = y.todense()
 
     c= bcalc.einsum('ijklm,ijn->lnmk', x, y)
@@ -181,4 +197,8 @@ def test_einsum_mix_types():
     c= bcalc.einsum('ijklm,ijn->lnmk', x_d, y)
     elemC = np.einsum('ijklm,ijn->lnmk', x_d, y_d)
     assert_eq(elemC, c)
+
+if __name__ == '__main__':
+    test_einsum_zeros()
+    test_einsum_mix_types()
 
