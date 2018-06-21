@@ -1069,8 +1069,11 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         shape = tuple(self.shape[ax] for ax in axes)
         block_shape = tuple(self.block_shape[ax] for ax in axes)
         data_trans_axes = np.array([-1] + list(axes)) + 1
-        #data_T = np.asarray(list(self.data)).transpose(data_trans_axes) # ZHC NOTE the storage of self.data should be an array of shape (block_nnz, *(block_shape))
-        data_T = self.data.transpose(data_trans_axes)
+
+        if self.block_nnz != 0:
+            data_T = self.data.transpose(data_trans_axes)
+        else:
+            data_T = self.data
 
         # there is no duplicates, but is not sorted
         result = BCOO(self.coords[axes, :], data_T, shape, \

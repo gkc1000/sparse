@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import numpy as np
-import re
 import sparse
 from sparse import BCOO
 from sparse.utils import assert_eq
@@ -8,6 +7,8 @@ from sparse.utils import assert_eq
 # Copied from pyscf.lib.einsum,
 # to avoid importing tblis_einsum
 # in pyscf.lib.numpy_helper.py
+
+#@profile
 def einsum(idx_str, *tensors, **kwargs):
     '''Perform a more efficient einsum via reshaping to a matrix multiply.
 
@@ -20,13 +21,14 @@ def einsum(idx_str, *tensors, **kwargs):
     DEBUG = kwargs.get('DEBUG', False)
 
     idx_str = idx_str.replace(' ','')
-    indices  = "".join(re.split(',|->',idx_str))
+    indices  = idx_str.replace(',','').replace('->','') # avoid use re, ZHC
     if '->' not in idx_str or any(indices.count(x)>2 for x in set(indices)):
         #return np.einsum(idx_str,*tensors)
         raise NotImplementedError
 
-    if idx_str.count(',') > 1:
-        indices  = re.split(',|->',idx_str)
+    comma_count = idx_str.count(',')
+    if comma_count > 1: # > 2 tensor case
+        indices  = idx_str.replace(',',' ').replace('->',' ').split()
         indices_in = indices[:-1]
         idx_final = indices[-1]
         n_shared_max = 0
@@ -52,8 +54,30 @@ def einsum(idx_str, *tensors, **kwargs):
         tensors.append(C)
         return einsum(",".join(indices_in)+"->"+idx_final,*tensors)
 
+    elif comma_count == 0: # 1 tensor case, same as transpose
+        A = tensors[0]
+        idxA, idxC = idx_str.split('->')
+        idxA, idxC = [list(x) for x in [idxA, idxC]]
+        assert(len(idxA) == A.ndim)
+        if DEBUG:
+            print("*** Einsum for", idx_str)
+            print(" idxA =", idxA)
+            print(" idxC =", idxC)
+        new_orderCt = [idxA.index(idx) for idx in idxC]
+        return A.transpose(new_orderCt)
+
     A, B = tensors
     
+    # mix type, transfer to dense case
+    if not (isinstance(A, BCOO) and isinstance(B, BCOO)):
+        print("Warning: the block einsum takes non-BCOO objects, try to transfer to dense...")
+        if hasattr(A, 'todense'):
+            A = A.todense()
+        if hasattr(B, 'todense'):
+            B = B.todense()
+        return np.einsum(idx_str, A, B)
+            
+            
     # Call numpy.asarray because A or B may be HDF5 Datasets 
     # A = numpy.asarray(A, order='A')
     # B = numpy.asarray(B, order='A')
@@ -88,7 +112,6 @@ def einsum(idx_str, *tensors, **kwargs):
     for idx,rnge in zip(idxB,B.block_shape):
         block_rangeB[idx] = rnge
 
-        
     if DEBUG:
         print("rangeA =", rangeA)
         print("rangeB =", rangeB)
@@ -106,9 +129,14 @@ def einsum(idx_str, *tensors, **kwargs):
     insert_B_loc = 0
     for n in shared_idxAB:
         if rangeA[n] != rangeB[n]:
-            err = ('ERROR: In index string %s, the range of index %s is '
+            err = ('ERROR: In index string %s, the outer_shape range of index %s is '
                    'different in A (%d) and B (%d)' %
                    (idx_str, n, rangeA[n], rangeB[n]))
+            raise RuntimeError(err)
+        if block_rangeA[n] != block_rangeB[n]:
+            err = ('ERROR: In index string %s, the block_shape range of index %s is '
+                   'different in A (%d) and B (%d)' %
+                   (idx_str, n, block_rangeA[n], block_rangeB[n]))
             raise RuntimeError(err)
 
         # Bring idx all the way to the right for A
@@ -131,7 +159,6 @@ def einsum(idx_str, *tensors, **kwargs):
     # Transpose the tensors into the proper order and reshape into matrices
     new_orderA = [idxA.index(idx) for idx in idxAt]
     new_orderB = [idxB.index(idx) for idx in idxBt]
-
 
     if DEBUG:
         print("Transposing A as", new_orderA)
@@ -157,15 +184,16 @@ def einsum(idx_str, *tensors, **kwargs):
         block_shapeCt.append(block_rangeB[idx])
         idxCt.append(idx)
     new_orderCt = [idxCt.index(idx) for idx in idxC]
-
-    np_shapeCt = tuple(np.multiply(shapeCt, block_shapeCt))
+    
     if A.nnz == 0 or B.nnz == 0:
         shapeCt = [shapeCt[i] for i in new_orderCt]
         block_shapeCt = [block_shapeCt[i] for i in new_orderCt]
+        np_shapeCt = tuple(np.multiply(shapeCt, block_shapeCt))
+        
         return BCOO(np.array([],dtype = np.int), data = np.array([], dtype = \
                     np.result_type(A.dtype,B.dtype)), shape=np_shapeCt,\
                     block_shape = block_shapeCt, has_duplicates=False,\
-                    sorted=True).transpose(new_orderCt)
+                    sorted=True)
 
     At = A.transpose(new_orderA)
     Bt = B.transpose(new_orderB)
@@ -184,7 +212,6 @@ def einsum(idx_str, *tensors, **kwargs):
     At = At.tobsr()
     Bt = Bt.tobsr()
     AdotB = At.dot(Bt)
-    
     AdotB_bcoo = BCOO.from_bsr(AdotB)
     
     if DEBUG:
