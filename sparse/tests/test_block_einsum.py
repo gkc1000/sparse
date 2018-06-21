@@ -78,6 +78,29 @@ def test_einsum_as_transpose():
     assert_eq(elemC, c)
 
 
+# FIXME
+def test_inner_contraction():
+    shape_x = (8,6)
+    block_shape_x = (2,2)
+    x = sparse.brandom(shape_x, block_shape_x, 0.3, format='bcoo')
+    x_d = x.todense()
+
+    shape_y = (8,6,6)
+    block_shape_y = (2,2,2)
+    y = sparse.brandom(shape_y, block_shape_y, 0.3, format='bcoo')
+    y_d = y.todense()
+
+    elemC = np.einsum("in,ijj->n", x_d, y_d)
+    c= bcalc.einsum("in,ijj->n", x, y, DEBUG=False)
+    assert_eq(elemC, c)
+    
+    elemC = np.einsum("ijj->i", y_d)
+    c= bcalc.einsum("ijj->i", y, DEBUG=False)
+    assert_eq(elemC, c)
+
+
+
+
 #TODO:def test_einsum_views():
 #TODO:    shape_y = (6,6,6)
 #TODO:    block_shape_y = (2,2,2)
