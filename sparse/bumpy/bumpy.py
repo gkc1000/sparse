@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import numpy as np
-import bumpy_helper
 
 class bndarray(np.ndarray):
     def __new__(subtype, shape, block_shape, data = None, block_dtype = None):
@@ -45,7 +44,7 @@ class bndarray(np.ndarray):
             for ix in np.ndindex(obj.shape):
                 obj[ix] = np.reshape(obj[ix], block_shape, order=order)
         return obj
-        
+
     def transpose(self, axes=None):
         obj = self.copy()
         obj = np.ndarray.transpose(obj, axes)
@@ -53,14 +52,14 @@ class bndarray(np.ndarray):
             obj.block_shape = self.block_shape[::-1]
         else:
             obj.block_shape = tuple(np.array(self.block_shape)[axes])
-        
+
         for ix in np.ndindex(obj.shape):
             obj[ix] = obj[ix].transpose(axes)
         return obj
 
     def todense(self):
         return asndarray(self)
-        
+
 
 
 def zeros(shape, block_shape, dtype = np.float64):
@@ -83,17 +82,17 @@ def random(shape, block_shape, dtype = np.float64):
     for ix in np.ndindex(obj.shape):
         obj[ix] = np.random.random(obj.block_shape)
     return obj
-    
+
 def asndarray(ba):
     shape = np.multiply(ba.shape, ba.block_shape)
-    a = np.empty(shape, dtype=ba.block_dtype)
+    a = np.zeros(shape, dtype=ba.block_dtype)
     for ix in np.ndindex(ba.shape):
         start = np.multiply(ix, ba.block_shape)
         end = np.add(start, ba.block_shape)
-        slices = [slice(s,e) for (s,e) in zip(start,end)]
+        slices = tuple([slice(s,e) for (s,e) in zip(start,end)])
         a[slices] = ba[ix]
     return a
-    
+
 
 ##################
 # test functions #
@@ -107,16 +106,17 @@ def test_init_from_numpy():
     a = np.random.random((4,4))
     shape = (2,2)
     block_shape =(2,2)
-    ba = bndarray(shape, block_shape, data = a) 
-    print "original ndarray"
-    print a
-    print "bndarray"
-    print ba
-    print np.allclose(a,asndarray(ba))
+    ba = bndarray(shape, block_shape, data = a)
+    print("original ndarray")
+    print(a)
+    print("bndarray")
+    print(ba)
+    print(np.allclose(a,asndarray(ba)))
 
 
 
 def test_einsum():
+    from sparse.bumpy import bumpy_helper
     #a = bndarray((3,1,2), (2,4,7)) 
     #a = bndarray((1,2), (2,4))
     a = random((3,5), (2,5))
@@ -131,11 +131,11 @@ def test_einsum():
 
     elemC = np.einsum("ij,jk->ik", A, B)
 
-    print np.allclose(elemC, C)
-     
+    print(np.allclose(elemC, C))
+
 
 if __name__ == '__main__':
-    print "\n main test \n"
+    print("\n main test \n")
     #test_einsum()
     test_init_from_numpy()
-    
+

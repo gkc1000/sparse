@@ -33,6 +33,7 @@ def asCOO(x, name='asCOO', check=True):
     ValueError
         If ``check`` is true and a dense input is supplied.
     """
+    raise NotImplementedError
     from .core import COO
 
     if check and not isinstance(x, (SparseArray, scipy.sparse.spmatrix)):
@@ -616,3 +617,31 @@ def nanreduce(x, method, identity=None, axis=None, keepdims=False, **kwargs):
     """
     arr = _replace_nan(x, method.identity if identity is None else identity)
     return arr.reduce(method, axis, keepdims, **kwargs)
+
+def zeros(shape, dtype=float, block_shape=None):
+    """
+    Return a new sparse tensor of given shape and dtype, filled with zeros.
+
+    Parameters
+    ----------
+    shape : int or sequence of ints
+        Shape of the new array, e.g., ``(2, 3)`` or ``2``.
+    dtype : data-type, optional
+        The desired data-type for the array, e.g., `numpy.int8`.  Default is
+        `numpy.float64`.
+    block_shape : int or sequence of ints, optional
+        The block shape
+
+    Returns
+    -------
+    out : BCOO tensor
+        BCOO tensor of zeros with the given shape, dtype.
+    """
+    from .bcore import BCOO
+    coords = np.empty((len(shape), 0), dtype=np.uint)
+    if block_shape is None:
+        data = np.empty((0,), dtype)
+        block_shape = ()
+    else:
+        data = np.empty((0,)+tuple(block_shape), dtype)
+    return BCOO(coords, data, shape, block_shape=block_shape)

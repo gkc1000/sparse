@@ -22,7 +22,8 @@ def einsum(idx_str, *tensors, **kwargs):
     idx_str = idx_str.replace(' ','')
     indices  = "".join(re.split(',|->',idx_str))
     if '->' not in idx_str or any(indices.count(x)>2 for x in set(indices)):
-        return numpy.einsum(idx_str,*tensors)
+        #return np.einsum(idx_str,*tensors)
+        raise NotImplementedError
 
     if idx_str.count(',') > 1:
         indices  = re.split(',|->',idx_str)
@@ -179,16 +180,19 @@ def einsum(idx_str, *tensors, **kwargs):
     # else:
     Bt = Bt.block_reshape((inner_shape,-1), block_shape = (block_inner_shape,-1))
 
-    AdotB = At.tobsr().dot(Bt.tobsr())
+    #AdotB = At.tobsr().dot(Bt.tobsr())
+    At = At.tobsr()
+    Bt = Bt.tobsr()
+    AdotB = At.dot(Bt)
     
     AdotB_bcoo = BCOO.from_bsr(AdotB)
     
     if DEBUG:
-        print "AdotB bsr format indptr, indices"
-        print AdotB.indptr
-        print AdotB.indices
-        print "AdotB bcoo format coords"
-        print AdotB_bcoo.coords
+        print("AdotB bsr format indptr, indices")
+        print(AdotB.indptr)
+        print(AdotB.indices)
+        print("AdotB bcoo format coords")
+        print(AdotB_bcoo.coords)
     
     return AdotB_bcoo.block_reshape(shapeCt, block_shape = block_shapeCt).transpose(new_orderCt)
 
@@ -248,10 +252,10 @@ if __name__ == '__main__':
     elemC = np.einsum("ijk,kmn->ijmn", x_d, y_d)
     '''
 
-    print "results comparision:"
-    #print c
-    #print c.todense()
-    print np.allclose(elemC, c.todense())
+    print("results comparision:")
+    #print(c)
+    #print(c.todense())
+    print(np.allclose(elemC, c.todense()))
     
 
 
