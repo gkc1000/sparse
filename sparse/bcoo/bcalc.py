@@ -8,6 +8,8 @@ from sparse.utils import assert_eq
 # Copied from pyscf.lib.einsum,
 # to avoid importing tblis_einsum
 # in pyscf.lib.numpy_helper.py
+
+@profile
 def einsum(idx_str, *tensors, **kwargs):
     '''Perform a more efficient einsum via reshaping to a matrix multiply.
 
@@ -20,13 +22,16 @@ def einsum(idx_str, *tensors, **kwargs):
     DEBUG = kwargs.get('DEBUG', False)
 
     idx_str = idx_str.replace(' ','')
-    indices  = "".join(re.split(',|->',idx_str))
+    #indices  = "".join(re.split(',|->',idx_str))
+    indices  = idx_str.replace(',','').replace('->','') # avoid use re, ZHC
     if '->' not in idx_str or any(indices.count(x)>2 for x in set(indices)):
         #return np.einsum(idx_str,*tensors)
         raise NotImplementedError
 
-    if idx_str.count(',') > 1:
-        indices  = re.split(',|->',idx_str)
+    comma_count = idx_str.count(',')
+    if comma_count > 1:
+        #indices  = re.split(',|->',idx_str)
+        indices  = idx_str.replace(',',' ').replace('->',' ').split()
         indices_in = indices[:-1]
         idx_final = indices[-1]
         n_shared_max = 0
@@ -51,6 +56,15 @@ def einsum(idx_str, *tensors, **kwargs):
         tensors.pop(b)
         tensors.append(C)
         return einsum(",".join(indices_in)+"->"+idx_final,*tensors)
+    elif comma_count == 0: # as transpose
+        A = tensors
+        #idxA, idxBC = idx_str.split(',')
+        idxA, idxC = idx_str.split('->')
+        idxA, idxC = [list(x) for x in [idxA, idxC]]
+        assert(len(idxA) == A.ndim)
+        #raise RuntimeError
+        raise NotImplementedError
+        return 
 
     A, B = tensors
     
