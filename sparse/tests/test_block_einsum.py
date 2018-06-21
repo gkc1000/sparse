@@ -117,7 +117,7 @@ def test_einsum_misc():
     assert_eq(elemC, c)
 
 def test_einsum_shape_error():
-    # test for shape error while outer_shape is ok
+    # test for shape error while block_shape is ok
     shape_x = (4,2,2)
     block_shape_x = (2,2,2)
     x = sparse.brandom(shape_x, block_shape_x, 0.5, format='bcoo')
@@ -133,18 +133,17 @@ def test_einsum_shape_error():
     z = sparse.brandom(shape_z, block_shape_z, 0.5, format='bcoo')
     z_d = z.todense()
 
-    #FIXME:
     with pytest.raises(RuntimeError):
         c = bcalc.einsum('kxy,yz,zx->k', x, y, z)
 
 
-    # test for block shape error
-    shape_x = (4,2,2)
+    # test for block_shape error while outer_shape is ok
+    shape_x = (4,4,2)
     block_shape_x = (2,2,2)
     x = sparse.brandom(shape_x, block_shape_x, 0.5, format='bcoo')
     x_d = x.todense()
 
-    shape_y = (2,2)
+    shape_y = (1,1)
     block_shape_y = (1,1)
     y = sparse.brandom(shape_y, block_shape_y, 0.5, format='bcoo')
     y_d = y.todense()
@@ -154,11 +153,8 @@ def test_einsum_shape_error():
     z = sparse.brandom(shape_z, block_shape_z, 0.5, format='bcoo')
     z_d = z.todense()
 
-    #FIXME:
-    with pytest.raises(ValueError):
+    with pytest.raises(RuntimeError):
         c = bcalc.einsum('kxy,yz,zx->k', x, y, z)
-        #elemC = np.einsum('kxy,yz,zx->k', x_d, y_d, z_d)
-        #assert_eq(elemC, c)
 
 
 def test_einsum_zeros():
