@@ -78,6 +78,31 @@ def test_einsum_as_transpose():
     assert_eq(elemC, c)
 
 
+# FIXME
+def test_inner_contraction():
+    shape_x = (8,6)
+    block_shape_x = (2,2)
+    x = sparse.brandom(shape_x, block_shape_x, 0.3, format='bcoo')
+    x_d = x.todense()
+
+    shape_y = (8,6,6)
+    block_shape_y = (2,2,2)
+    y = sparse.brandom(shape_y, block_shape_y, 0.3, format='bcoo')
+    y_d = y.todense()
+
+    elemC = np.einsum("in,ijj->n", x_d, y_d)
+    with pytest.raises(NotImplementedError):
+        c= bcalc.einsum("in,ijj->n", x, y, DEBUG=False)
+        assert_eq(elemC, c)
+    
+    elemC = np.einsum("ijj->i", y_d)
+    with pytest.raises(NotImplementedError):
+        c= bcalc.einsum("ijj->i", y, DEBUG=False)
+        assert_eq(elemC, c)
+
+
+
+
 #TODO:def test_einsum_views():
 #TODO:    shape_y = (6,6,6)
 #TODO:    block_shape_y = (2,2,2)
@@ -153,7 +178,7 @@ def test_einsum_shape_error():
     z = sparse.brandom(shape_z, block_shape_z, 0.5, format='bcoo')
     z_d = z.todense()
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         c = bcalc.einsum('kxy,yz,zx->k', x, y, z)
 
 
@@ -171,6 +196,27 @@ def test_einsum_zeros():
     c= bcalc.einsum('ijklm,ijn->lnmk', x, y)
     elemC = np.einsum('ijklm,ijn->lnmk', x_d, y_d)
     assert_eq(elemC, c)
+
+def test_einsum_multi_tensor():
+    shape_x = (12,8,9)
+    block_shape_x = (2,4,3)
+    x = sparse.brandom(shape_x, block_shape_x, 0.5, format='bcoo')
+    x_d = x.todense()
+
+    shape_y = (9,5)
+    block_shape_y = (3,1)
+    y = sparse.brandom(shape_y, block_shape_y, 0.5, format='bcoo')
+    y_d = y.todense()
+
+    shape_z = (5,8)
+    block_shape_z = (1,4)
+    z = sparse.brandom(shape_z, block_shape_z, 0.5, format='bcoo')
+    z_d = z.todense()
+
+    c = bcalc.einsum('kxy,yz,zx->k', x, y, z)
+    elemC = np.einsum('kxy,yz,zx->k', x_d, y_d, z_d)
+    assert_eq(elemC, c)
+
 
 
 def test_einsum_mix_types():
