@@ -25,7 +25,7 @@ def elemwise(func, *args, **kwargs):
 
     Returns
     -------
-    COO
+    BCOO
         The result of applying the function.
 
     Raises
@@ -42,18 +42,18 @@ def elemwise(func, *args, **kwargs):
     Notes
     -----
     Previously, operations with Numpy arrays were sometimes supported. Now,
-    it is necessary to convert Numpy arrays to :obj:`COO` objects.
+    it is necessary to convert Numpy arrays to :obj:`BCOO` objects.
     """
     # Because we need to mutate args.
     from .bcore import BCOO
-    from ..sparse_array import SparseArray
+    from ..bsparse_array import BSparseArray
 
     args = list(args)
     posargs = []
     pos = []
     for i, arg in enumerate(args):
-        if isinstance(arg, scipy.sparse.spmatrix):
-            args[i] = COO.from_scipy_sparse(arg)
+        if isinstance(arg, scipy.sparse.spmatrix): # ZHC TODO add function from_scipy_sparse
+            args[i] = BCOO.from_scipy_sparse(arg)
         elif isscalar(arg) or (isinstance(arg, np.ndarray)
                                and not arg.shape):
             # Faster and more reliable to pass ()-shaped ndarrays as scalars.
@@ -61,9 +61,9 @@ def elemwise(func, *args, **kwargs):
 
             pos.append(i)
             posargs.append(args[i])
-        elif isinstance(arg, SparseArray) and not isinstance(arg, COO):
-            args[i] = COO(arg)
-        elif not isinstance(arg, COO):
+        elif isinstance(arg, BSparseArray) and not isinstance(arg, BCOO):
+            args[i] = BCOO(arg)
+        elif not isinstance(arg, BCOO):
             return NotImplemented
 
     # Filter out scalars as they are 'baked' into the function.
@@ -141,7 +141,7 @@ def _elemwise_n_ary(func, *args, **kwargs):
     ValueError
         If the input shapes aren't compatible or the result will be dense.
     """
-    from .core import COO
+    from .bcore import BCOO
 
     args = list(args)
 
@@ -166,13 +166,14 @@ def _elemwise_n_ary(func, *args, **kwargs):
         data_list.extend(di)
 
     result_shape = _get_nary_broadcast_shape(*[arg.shape for arg in args])
+    result_block_shape = _get_nary_broadcast_shape(*[arg.block_shape for arg in args])
 
-    # Concatenate matches and mismatches
-    data = np.concatenate(data_list) if len(data_list) else np.empty((0,), dtype=func_value.dtype)
+    # Concatenate matches and mismatches # TODO
+    data = np.concatenate(data_list) if len(data_list) else np.empty((0,), dtype=func_value.dtype) # ZHC TODO block shape
     coords = np.concatenate(coords_list, axis=1) if len(coords_list) else \
         np.empty((0, len(result_shape)), dtype=np.min_scalar_type(max(result_shape) - 1))
 
-    return COO(coords, data, shape=result_shape, has_duplicates=False)
+    return BCOO(coords, data, shape=result_shape, block_shape = result_block_shape, has_duplicates=False) # ZHC NOTE add block_shape
 
 
 def _match_coo(*args, **kwargs):
@@ -199,8 +200,8 @@ def _match_coo(*args, **kwargs):
         The expanded, matched :obj:`COO` objects. Only returned if
         ``return_midx`` is ``False``.
     """
-    from .core import COO
-    from .common import linear_loc
+    from .bcore import BCOO
+    from .bcommon import linear_loc
 
     return_midx = kwargs.pop('return_midx', False)
     cache = kwargs.pop('cache', None)
@@ -222,6 +223,7 @@ def _match_coo(*args, **kwargs):
 
         cargs = [matched_arrays[0], arg2]
         current_shape = _get_broadcast_shape(matched_arrays[0].shape, arg2.shape)
+        current_block_shape = _get_broadcast_shape(matched_arrays[0].block_shape, arg2.block_shape)
         params = [_get_broadcast_parameters(arg.shape, current_shape) for arg in cargs]
         reduced_params = [all(p) for p in zip(*params)]
         reduced_shape = _get_reduced_shape(arg2.shape,
@@ -230,7 +232,7 @@ def _match_coo(*args, **kwargs):
         reduced_coords = [_get_reduced_coords(arg.coords, reduced_params[-arg.ndim:])
                           for arg in cargs]
 
-        linear = [linear_loc(rc, reduced_shape) for rc in reduced_coords]
+        linear = [linear_loc(rc, reduced_shape) for rc in reduced_coords] # ZHC TODO outer_shape?
         sorted_idx = [np.argsort(idx) for idx in linear]
         linear = [idx[s] for idx, s in zip(linear, sorted_idx)]
         matched_idx = _match_arrays(*linear)
@@ -247,7 +249,7 @@ def _match_coo(*args, **kwargs):
         # The coords aren't truly sorted, but we don't need them, so it's
         # best to avoid the extra cost.
         matched_arrays = [
-            COO(mcoords, md, shape=current_shape, sorted=True, has_duplicates=False)
+            BCOO(mcoords, md, shape=current_shape, block_shape = current_block_shape, sorted=True, has_duplicates=False)  
             for md in mdata]
 
         if cache is not None:
@@ -281,7 +283,7 @@ def _unmatch_coo(func, args, mask, cache, **kwargs):
     matched_data : list[ndarray]
         The matched data.
     """
-    from .core import COO
+    from .bcore import BCOO
 
     matched_args = [a for a, m in zip(args, mask) if m]
     unmatched_args = [a for a, m in zip(args, mask) if not m]
@@ -290,12 +292,15 @@ def _unmatch_coo(func, args, mask, cache, **kwargs):
 
     pos = tuple(i for i, m in enumerate(mask) if not m)
     posargs = [_zero_of_dtype(arg.dtype) for arg, m in zip(args, mask) if not m]
-    result_shape = _get_nary_broadcast_shape(*[arg.shape for arg in args])
+    result_shape = _get_nary_broadcast_shape(*[arg.shape for arg in args]) # ZHC NOTE
+    result_block_shape = _get_nary_broadcast_shape(*[arg.block_shape for arg in args])
 
     partial = PositinalArgumentPartial(func, pos, posargs)
     matched_func = partial(*[a.data for a in matched_arrays], **kwargs)
 
-    unmatched_mask = matched_func != _zero_of_dtype(matched_func.dtype)
+    #unmatched_mask = matched_func != _zero_of_dtype(matched_func.dtype)
+    matched_func_abs_block_sum = np.sum(np.abs(matched_func), axis=tuple(np.arange(1,len(matched_func.shape))))
+    unmatched_mask = matched_func_abs_block_sum != _zero_of_dtype(matched_func.dtype) # NOTE type careful
 
     if not unmatched_mask.any():
         return [], []
@@ -305,13 +310,14 @@ def _unmatch_coo(func, args, mask, cache, **kwargs):
 
     # The coords aren't truly sorted, but we don't need them, so it's
     # best to avoid the extra cost.
-    func_array = COO(func_coords, func_data, shape=matched_arrays[0].shape,
-                     sorted=True, has_duplicates=False).broadcast_to(result_shape)
+    func_array = BCOO(func_coords, func_data, shape=matched_arrays[0].shape, \
+                     block_shape = matched_arrays[0].block_shape, \
+                     sorted=True, has_duplicates=False).broadcast_to(result_shape, result_block_shape)
 
     if all(mask):
         return [func_array.coords], [func_array.data]
 
-    unmatched_mask = np.ones(func_array.nnz, dtype=np.bool)
+    unmatched_mask = np.ones(func_array.block_nnz, dtype=np.bool)
 
     for arg in unmatched_args:
         matched_idx = _match_coo(func_array, arg, return_midx=True)[0]
@@ -454,7 +460,7 @@ def _get_reduced_shape(shape, params):
     return reduced_shape
 
 
-def _get_expanded_coords_data(coords, data, params, broadcast_shape):
+def _get_expanded_coords_data(coords, data, params, broadcast_shape, broadcast_block_shape):
     """
     Expand coordinates/data to broadcast_shape. Does most of the heavy lifting for broadcast_to.
     Produces sorted output for sorted inputs.
@@ -477,15 +483,25 @@ def _get_expanded_coords_data(coords, data, params, broadcast_shape):
     expanded_data : np.ndarray
         The data corresponding to expanded_coords.
     """
-    first_dim = -1
+
+    broadcast_outer_shape, mod_shape = np.divmod(broadcast_shape, broadcast_block_shape)
+    broadcast_outer_shape = tuple(broadcast_outer_shape)
+
     expand_shapes = []
-    for d, p, l in zip(range(len(broadcast_shape)), params, broadcast_shape):
+    
+    first_dim = -1
+    #for d, p, l in zip(range(len(broadcast_shape)), params, broadcast_shape): # add bl
+    for d, p, l in zip(range(len(broadcast_outer_shape)), params, broadcast_outer_shape): # add bl
         if p and first_dim == -1:
             expand_shapes.append(coords.shape[1])
             first_dim = d
 
         if not p:
             expand_shapes.append(l)
+    
+    # broadcast data first by block_shape cast
+    if data[0].shape != tuple(broadcast_block_shape):
+        data = np.asarray([np.broadcast_to(data_i, broadcast_block_shape) for i, data_i in enumerate(data)])
 
     all_idx = _cartesian_product(*(np.arange(d, dtype=np.min_scalar_type(d - 1)) for d in expand_shapes))
     dt = np.result_type(*(np.min_scalar_type(l - 1) for l in broadcast_shape))
@@ -496,7 +512,8 @@ def _get_expanded_coords_data(coords, data, params, broadcast_shape):
     expanded_coords = np.empty((len(broadcast_shape), all_idx.shape[1]), dtype=dt)
     expanded_data = data[all_idx[first_dim]]
 
-    for d, p, l in zip(range(len(broadcast_shape)), params, broadcast_shape):
+    #for d, p, l in zip(range(len(broadcast_shape)), params, broadcast_shape):
+    for d, p, l in zip(range(len(broadcast_outer_shape)), params, broadcast_outer_shape):
         if p:
             expanded_coords[d] = coords[dim, all_idx[first_dim]]
         else:
@@ -574,7 +591,7 @@ def _get_matching_coords(coords, params, shape):
     return np.asarray(matching_coords, dtype=dtype)
 
 
-def broadcast_to(x, shape):
+def broadcast_to(x, shape, block_shape):
     """
     Performs the equivalent of :obj:`numpy.broadcast_to` for :obj:`COO`. Note that
     this function returns a new array instead of a view.
@@ -598,14 +615,15 @@ def broadcast_to(x, shape):
     --------
     :obj:`numpy.broadcast_to` : NumPy equivalent function
     """
-    from .core import COO
+    from .bcore import BCOO
 
-    if shape == x.shape:
+    if shape == x.shape and block_shape == x.block_shape:
         return x
 
     result_shape = _get_broadcast_shape(x.shape, shape, is_result=True)
+    result_block_shape = _get_broadcast_shape(x.block_shape, block_shape, is_result=True)
     params = _get_broadcast_parameters(x.shape, result_shape)
-    coords, data = _get_expanded_coords_data(x.coords, x.data, params, result_shape)
+    coords, data = _get_expanded_coords_data(x.coords, x.data, params, result_shape, result_block_shape)
 
-    return COO(coords, data, shape=result_shape, has_duplicates=False,
-               sorted=True)
+    return BCOO(coords, data, shape=result_shape, block_shape = result_block_shape,\
+                has_duplicates=False, sorted=True)
