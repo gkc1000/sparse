@@ -1654,7 +1654,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         self.data = data
         self.coords = coords
 
-    def broadcast_to(self, shape):
+    def broadcast_to(self, shape, block_shape):
         """
         Performs the equivalent of :obj:`numpy.broadcast_to` for :obj:`COO`. Note that
         this function returns a new array instead of a view.
@@ -1678,7 +1678,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         --------
         :obj:`numpy.broadcast_to` : NumPy equivalent function
         """
-        return broadcast_to(self, shape)
+        return broadcast_to(self, shape, block_shape)
 
     def round(self, decimals=0, out=None):
         """
