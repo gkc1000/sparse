@@ -5,7 +5,7 @@ import scipy.sparse
 
 import numba
 
-from ..utils import isscalar, PositinalArgumentPartial, _zero_of_dtype
+from ..butils import isscalar, PositinalArgumentPartial, _zero_of_dtype, _block_zero_of_dtype
 from ..compatibility import range, zip, zip_longest
 
 
@@ -146,9 +146,11 @@ def _elemwise_n_ary(func, *args, **kwargs):
     args = list(args)
 
     args_zeros = tuple(_zero_of_dtype(np.dtype(arg)) for arg in args)
+    #args_zeros = tuple(_block_zero_of_dtype(np.dtype(arg), arg.block_shape) for arg in args) # ZHC NOTE
 
     func_value = func(*args_zeros, **kwargs)
     func_zero = _zero_of_dtype(func_value.dtype)
+    #func_zero = _block_zero_of_dtype(func_value.dtype)
     if func_value != func_zero:
         raise ValueError("Performing this operation would produce "
                          "a dense result: %s" % str(func))
@@ -292,6 +294,7 @@ def _unmatch_coo(func, args, mask, cache, **kwargs):
 
     pos = tuple(i for i, m in enumerate(mask) if not m)
     posargs = [_zero_of_dtype(arg.dtype) for arg, m in zip(args, mask) if not m]
+    #posargs = [_block_zero_of_dtype(arg.dtype, arg.block_shape) for arg, m in zip(args, mask) if not m]
     result_shape = _get_nary_broadcast_shape(*[arg.shape for arg in args]) # ZHC NOTE
     result_block_shape = _get_nary_broadcast_shape(*[arg.block_shape for arg in args])
 

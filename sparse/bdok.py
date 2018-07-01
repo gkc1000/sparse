@@ -5,7 +5,7 @@ import numpy as np
 from . import bumpy
 
 from .slicing import normalize_index
-from .utils import _zero_of_dtype
+from .butils import _zero_of_dtype
 from .bsparse_array import BSparseArray
 from .compatibility import int, range, zip
 
