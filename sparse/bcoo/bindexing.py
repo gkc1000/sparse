@@ -6,7 +6,7 @@ import numpy as np
 
 from ..compatibility import range, zip_longest
 from ..slicing import normalize_index
-from ..utils import _zero_of_dtype
+from ..butils import _zero_of_dtype
 from ..coo.indexing import _prune_indices, _mask, _compute_mask
 
 

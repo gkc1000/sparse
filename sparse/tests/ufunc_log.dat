@@ -1,0 +1,83 @@
+
+ main test 
+
+[[0 0 3 3]
+ [0 0 3 3]
+ [1 1 2 2]
+ [1 1 2 2]]
+[[-2.  -2.5  0.   0. ]
+ [-2.  -2.5  0.   0. ]
+ [ 0.   0.  -2.  -2. ]
+ [ 0.   0.  -2.  -2. ]]
+
+@@@@@@@@@@@@@@@@@@@@
+matched_args
+[<BCOO: shape=(4, 4), block_shape=(2, 2), dtype=int64, nnz=12, block_nnz=3>, <BCOO: shape=(4, 4), block_shape=(2, 2), dtype=float64, nnz=8, block_nnz=2>]
+
+WWWWW args[1:]
+(<BCOO: shape=(4, 4), block_shape=(2, 2), dtype=float64, nnz=8, block_nnz=2>,)
+params
+[[True, True], [True, True]]
+reduced_params
+[True, True]
+reduced_shape
+(4, 4)
+reduced_coords
+[array([[0, 1, 1],
+       [1, 0, 1]], dtype=uint8), array([[0, 1],
+       [0, 1]], dtype=uint8)]
+
+
+@@@@@@@@@@@@@@@@@@@@
+matched_args
+[<BCOO: shape=(4, 4), block_shape=(2, 2), dtype=int64, nnz=12, block_nnz=3>]
+
+WWWWW args[1:]
+()
+func_array.data
+[[[3. 3.]
+  [3. 3.]]
+
+ [[1. 1.]
+  [1. 1.]]
+
+ [[2. 2.]
+  [2. 2.]]]
+IDX part
+WWWWW args[1:]
+(<BCOO: shape=(4, 4), block_shape=(2, 2), dtype=float64, nnz=8, block_nnz=2>,)
+params
+[[True, True], [True, True]]
+reduced_params
+[True, True]
+reduced_shape
+(4, 4)
+reduced_coords
+[array([[0, 1, 1],
+       [1, 0, 1]], dtype=uint8), array([[0, 1],
+       [0, 1]], dtype=uint8)]
+
+
+@@@@@@@@@@@@@@@@@@@@
+matched_args
+[<BCOO: shape=(4, 4), block_shape=(2, 2), dtype=float64, nnz=8, block_nnz=2>]
+
+WWWWW args[1:]
+()
+func_array.data
+[[-2.  -2.5]
+ [-2.  -2. ]]
+IDX part
+WWWWW args[1:]
+(<BCOO: shape=(4, 4), block_shape=(2, 2), dtype=int64, nnz=12, block_nnz=3>,)
+params
+[[True, True], [True, True]]
+reduced_params
+[True, True]
+reduced_shape
+(4, 4)
+reduced_coords
+[array([[0, 1],
+       [0, 1]], dtype=uint8), array([[0, 1, 1],
+       [1, 0, 1]], dtype=uint8)]
+

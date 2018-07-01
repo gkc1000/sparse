@@ -26,7 +26,7 @@ class bndarray(np.ndarray):
             for ix in np.ndindex(shape):
                 start = np.multiply(ix, block_shape)
                 end = np.add(start, block_shape)
-                slices = [slice(s,e) for (s,e) in zip(start,end)]
+                slices = tuple([slice(s,e) for (s,e) in zip(start,end)])
                 obj[ix] = data[slices]
 
         return obj

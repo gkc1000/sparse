@@ -7,7 +7,7 @@ import scipy.sparse
 
 from ..sparse_array import SparseArray
 from ..compatibility import range
-from ..utils import isscalar, normalize_axis
+from ..butils import isscalar, normalize_axis
 
 
 def asCOO(x, name='asCOO', check=True):

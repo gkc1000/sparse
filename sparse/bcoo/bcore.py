@@ -13,7 +13,7 @@ from .bumath import elemwise, broadcast_to
 from ..compatibility import int, range
 #from ..sparse_array import SparseArray
 from ..bsparse_array import BSparseArray
-from ..utils import _zero_of_dtype, normalize_axis
+from ..butils import _zero_of_dtype, normalize_axis
 
 
 class BCOO(BSparseArray, NDArrayOperatorsMixin):
@@ -325,12 +325,13 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
 
             # first convert to bndarray
             ba = bumpy.bndarray(shape = outer_shape, block_shape = block_shape, data = x)
-            sum_x = np.zeros(outer_shape)
+
+            sum_x = np.zeros(outer_shape, dtype = ba.block_dtype)
             for ix in np.ndindex(sum_x.shape):
                 sum_x[ix] = np.sum(np.abs(ba[ix]))
 
             coords = np.nonzero(sum_x)
-            data = np.asarray(list(ba[coords]))
+            data = np.asarray(list(ba[coords]), dtype = ba.block_dtype)
             coords = np.vstack(coords)
         else:
             coords = np.empty((0, 1), dtype=np.uint8)
