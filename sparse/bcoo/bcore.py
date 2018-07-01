@@ -244,6 +244,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         self.coords = self.coords.astype(dtype)
         assert not self.shape or (len(self.data) == self.coords.shape[1] and
                                   len(self.shape) == self.coords.shape[0])
+        assert self.block_nnz == 0 or (self.data.shape[1:] == self.block_shape)
 
         if not sorted:
             self._sort_indices()

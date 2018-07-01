@@ -281,6 +281,14 @@ def test_tobsr():
     z = x.tobsr()
     assert_eq(z, y)
 
+def test_invalid_data_input():
+    data = np.array([[-1,-2.5],[-3,-4]])
+    coords = np.array([[0,1],[0,1]])
+    block_shape = (2,2)
+    shape = (4,4)
+    with pytest.raises(AssertionError):
+        x = BCOO(coords, data=data, shape=shape, block_shape=block_shape) 
+
 
 if __name__ == '__main__':
     print("\n main test \n")
@@ -289,3 +297,4 @@ if __name__ == '__main__':
     test_transpose(None)
     test_block_reshape()
     test_tobsr()
+    test_invalid_data_input()

@@ -145,6 +145,8 @@ def _elemwise_n_ary(func, *args, **kwargs):
 
     args = list(args)
 
+    # check whether the operation will cause dense result.
+    # use scalar here to check, no need to use block check.
     args_zeros = tuple(_zero_of_dtype(np.dtype(arg)) for arg in args)
     #args_zeros = tuple(_block_zero_of_dtype(np.dtype(arg), arg.block_shape) for arg in args) # ZHC NOTE
 
@@ -171,9 +173,10 @@ def _elemwise_n_ary(func, *args, **kwargs):
     result_block_shape = _get_nary_broadcast_shape(*[arg.block_shape for arg in args])
 
     # Concatenate matches and mismatches # TODO
-    data = np.concatenate(data_list) if len(data_list) else np.empty((0,), dtype=func_value.dtype) # ZHC TODO block shape
+    data = np.concatenate(data_list) if len(data_list) else np.empty((0,), dtype=func_value.dtype) 
     coords = np.concatenate(coords_list, axis=1) if len(coords_list) else \
-        np.empty((0, len(result_shape)), dtype=np.min_scalar_type(max(result_shape) - 1))
+        np.empty((len(result_shape), 0), dtype=np.min_scalar_type(max(result_shape) - 1))
+        #np.empty((0, len(result_shape)), dtype=np.min_scalar_type(max(result_shape) - 1))
 
     return BCOO(coords, data, shape=result_shape, block_shape = result_block_shape, has_duplicates=False) # ZHC NOTE add block_shape
 
