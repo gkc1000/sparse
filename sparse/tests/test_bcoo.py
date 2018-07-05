@@ -5,7 +5,7 @@ import six
 import sparse
 from sparse import BDOK
 from sparse import BCOO
-from sparse.utils import assert_eq
+from sparse.butils import assert_eq
 
 import pytest
 
@@ -16,9 +16,11 @@ def test_brandom():
 
 def test_from_numpy():
     #a = np.random.random((6,5,4,1))
-    a = np.zeros((6,5,4,1))
-    x = BCOO.from_numpy(a, block_shape = (2,5,2,1))
-    assert_eq(a,x)
+    #a = np.zeros((6,5,4,1))
+    a = np.array([[1,2,0,0],[0,3,0,0],[4,5,6,0],[8,0,9,0]])
+    #x = BCOO.from_numpy(a, block_shape = (2,5,2,1))
+    x = BCOO.from_numpy(a, block_shape = (2, 2))
+    assert_eq(a, x)
 
 def test_zero_size():
     x = sparse.brandom((0,0,0), (2,2,2))
@@ -289,6 +291,28 @@ def test_invalid_data_input():
     with pytest.raises(AssertionError):
         x = BCOO(coords, data=data, shape=shape, block_shape=block_shape) 
 
+def test_to_coo():
+    a = np.random.random((6,5,4,1))
+    a[a > 0.3] = 0.0
+    #a = np.zeros((6,5,4,1))
+    x = BCOO.from_numpy(a, block_shape = (2,5,2,1))
+    from sparse import COO
+    y = COO.from_numpy(a)
+    z = x.to_coo()
+    assert_eq(y,z)
+
+def test_from_coo():
+    a = np.random.random((6,5,4,1))
+    a[a > 0.3] = 0.0
+    #a = np.zeros((6,5,4,1))
+    #a = np.array([[1,2,0,0],[0,3,0,0],[4,5,6,0],[8,0,9,0]])
+    from sparse import COO
+    x = COO.from_numpy(a)
+    y = BCOO.from_coo(x, block_shape = (2,5,2,1))
+    #y = BCOO.from_coo(x, block_shape = (2,2))
+    assert_eq(x,y)
+
+
 
 if __name__ == '__main__':
     print("\n main test \n")
@@ -298,3 +322,5 @@ if __name__ == '__main__':
     test_block_reshape()
     test_tobsr()
     test_invalid_data_input()
+    test_to_coo()
+    test_from_coo()

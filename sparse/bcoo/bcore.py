@@ -218,14 +218,14 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         # default block_shape, a tuple with all 1.
         if block_shape is None:
             if self.coords.nbytes:
-                _outer_shape = tuple((self.coords.max(axis=1) + 1)) # is actually outer_shape here
+                _outer_shape = tuple((self.coords.max(axis=1) + 1)) 
                 block_shape = tuple([1] * len(_outer_shape))
             else:
                 block_shape = ()
 
         if shape is None:
             if self.coords.nbytes:
-                _outer_shape = tuple((self.coords.max(axis=1) + 1)) # is actually outer_shape here
+                _outer_shape = tuple((self.coords.max(axis=1) + 1)) 
                 shape = tuple(np.asarray(_outer_shape) * np.asarray(block_shape)) # real shape
             else:
                 shape = ()
@@ -549,6 +549,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         >>> np.count_nonzero(x) == s.nnz
         True
         """
+        # ZHC NOTE to filter zero elements?
         return self.coords.shape[1] * np.product(self.block_shape)
 
     @property
@@ -1498,6 +1499,85 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
             csc = self.tocsr().tocsc()
 
         return csc
+    
+    @classmethod
+    def from_coo(cls, x, block_shape):
+        """
+        Convert the given :obj:`COO` to a :obj:`BCOO` object.
+
+        Parameters
+        ----------
+        x : COO
+            The COO to convert.
+        block_shape : tuple
+            The block shape of BCOO object.
+
+        Returns
+        -------
+        BCOO
+            The converted BCOO array.
+
+        Examples
+        --------
+        """
+
+        block_shape_div = np.asarray([block_shape]).T
+        coords_out, coords_mod = np.divmod(x.coords, block_shape_div)
+        if coords_out.shape[1] == 0: # all zero case
+            from .bcommon import zeros
+            return zeros(x.shape, dtype = x.dtype, block_shape = block_shape) 
+        block_coords_unique, inv_idx = np.unique(coords_out, axis=1, return_inverse = True)
+
+        data_shape = (block_coords_unique.shape[1], ) + block_shape
+        data_bcoo = np.zeros(data_shape, dtype = x.dtype)
+        coords_1d = np.arange(block_coords_unique.shape[1])[inv_idx] # index of first dim of data_bcoo
+        coords_all = np.vstack((coords_1d, coords_mod))
+        data_bcoo[tuple(coords_all)] = x.data
+
+        # ZHC NOTE possible filter zero block ?
+
+        # already no duplicates and sorted
+        return cls(block_coords_unique, data_bcoo, shape = x.shape, block_shape = block_shape, has_duplicates=False,
+                   sorted=True)
+
+         
+
+    def to_coo(self, do_sort = True, filter_zero = True):
+        """
+        Converts BCOO to a :obj:`COO`.
+
+        Parameters
+        ----------
+        do_sort : bool
+            Sort the indices of new COO or not.
+        filter_zero : bool
+            Filter possible zero elements in new COO or not.
+
+        Returns
+        -------
+        COO
+            The result of the conversion.
+
+        See Also
+        --------
+        """
+        
+        assert(self.has_canonical_format)
+        from sparse import COO
+        
+        coords_coo = np.multiply(self.coords, np.asarray([self.block_shape]).T).repeat(np.product(self.block_shape), axis = 1)
+        # add block indices to the outer one
+        coords_add = np.asarray(list(np.ndindex(self.block_shape)) * self.block_nnz, dtype = np.int).T
+        coords_coo += coords_add
+        data_coo = self.data.ravel()
+        
+        if filter_zero:
+            nonzero_idx = np.nonzero(data_coo)
+            data_coo = data_coo[nonzero_idx]
+            coords_coo = coords_coo[:, nonzero_idx[0]]
+        
+        return COO(coords_coo, data = data_coo, shape = self.shape, sorted = not do_sort, has_duplicates = False)
+
 
     @classmethod
     def from_bsr(cls, x):
