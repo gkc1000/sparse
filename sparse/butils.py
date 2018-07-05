@@ -103,6 +103,7 @@ def brandom(
 
 def assert_eq(x, y, check_nnz=True, compare_dtype=True, **kwargs):
     from .coo import COO
+    from .bcoo import BCOO
     assert x.shape == y.shape
 
     if compare_dtype:
@@ -122,13 +123,13 @@ def assert_eq(x, y, check_nnz=True, compare_dtype=True, **kwargs):
 
     if hasattr(x, 'todense'):
         xx = x.todense()
-        if check_nnz:
+        if check_nnz and (not isinstance(x, BCOO)):
             assert (xx != 0).sum() == x.nnz
     else:
         xx = x
     if hasattr(y, 'todense'):
         yy = y.todense()
-        if check_nnz:
+        if check_nnz and (not isinstance(y, BCOO)):
             assert (yy != 0).sum() == y.nnz
     else:
         yy = y
