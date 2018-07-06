@@ -312,6 +312,20 @@ def test_from_coo():
     #y = BCOO.from_coo(x, block_shape = (2,2))
     assert_eq(x,y)
 
+def test_broadcast():
+    a = np.array([[1,2,0,0],[0,3,0,0],[4,5,6,0],[8,0,9,0]])
+    b = np.broadcast_to(a, (3,4,4))
+    x = BCOO.from_numpy(a, block_shape = (2, 2))
+    y = x.broadcast_to((3,4,4),(3,2,2))
+    assert_eq(b,y)
+    
+    a = np.random.random((6,5,1,4,1))
+    a[a > 0.3] = 0.0
+    b = np.broadcast_to(a, (4,6,5,3,4,4))
+    x = BCOO.from_numpy(a, block_shape = (3, 5, 1, 2, 1))
+    y = x.broadcast_to((4,6,5,3,4,4),(2,3,5,3,2,1))
+    assert_eq(b,y)
+
 
 
 if __name__ == '__main__':
@@ -324,3 +338,4 @@ if __name__ == '__main__':
     test_invalid_data_input()
     test_to_coo()
     test_from_coo()
+    test_broadcast()
