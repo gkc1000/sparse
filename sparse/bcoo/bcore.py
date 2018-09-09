@@ -1981,3 +1981,170 @@ def _grouped_reduce(x, groups, method, **kwargs):
     result = method.reduceat(x, inv_idx, **kwargs)
     counts = np.diff(np.concatenate((inv_idx, [len(x)])))
     return result, inv_idx, counts
+
+
+
+def get_connected_component(spmat, sym = False):
+    """
+    Get connected component of a BCOO matrix.
+    Assume the matrix (graph) is undirected, i.e. if spmat[i, j] has connection,
+    then spmat[j, i] also has connection.
+    Use deep first search.
+
+    Parameters
+    ----------
+    spmat : BCOO
+        The input matrix.
+    sym : bool
+        Indicate whether the matrix is symmetric.
+
+    Returns
+    -------
+    group_collect : list of tuple, each tuple is a pair of (x, y) block indices.
+        A collection of grouped *block* indices.
+
+    """
+
+    if sym:
+        row, col = spmat.coords
+        # calculate the bsr indptr
+        indptr = np.zeros(spmat.outer_shape[0] + 1, dtype = np.int64)
+        np.cumsum(np.bincount(row, minlength = spmat.outer_shape[0]), out = indptr[1:])
+        
+        # calculate the bsc indptr
+        # first, sort in col-major order
+   
+        coords_col_major = spmat.coords
+        indptr_col = indptr 
+        
+        connected_vertex_from_row = [col[indptr[i] : indptr[i + 1]] \
+                for i in xrange(spmat.outer_shape[0])]
+        
+        connected_vertex_from_col = connected_vertex_from_row 
+        
+        is_grouped = np.zeros(spmat.outer_shape, dtype = np.bool)
+        is_grouped_row = np.zeros(spmat.outer_shape[0], dtype = np.bool)  
+        is_grouped_col = np.zeros(spmat.outer_shape[1], dtype = np.bool) 
+        
+        group_collect = []
+
+        for i in xrange(spmat.outer_shape[0]):
+            if is_grouped_row[i]:
+                continue
+            group = []
+            stack = []
+
+            stack.extend(zip([i] * len(connected_vertex_from_row[i]), connected_vertex_from_row[i]))
+            
+            is_grouped_row[i] = True
+           
+            # deep first search
+            while(len(stack) > 0):
+                vertex = stack.pop()
+                x, y = vertex
+
+                if is_grouped[x, y]:
+                    continue
+                else:
+                    group.append(vertex)
+                    is_grouped[x, y] = True
+
+                if is_grouped_row[x]:
+
+                    if is_grouped_col[y]:
+                        continue
+                    else:
+                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+                        is_grouped_col[y] = True
+
+                else:
+                    if is_grouped_col[y]:
+                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+                        is_grouped_row[x] = True
+                        
+                    else:
+                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+                        is_grouped_col[y] = True
+                        is_grouped_row[x] = True
+
+            if group != []:
+                group_collect.append(group)
+        
+        return group_collect
+
+    else: # not symmetric
+        row, col = spmat.coords
+        # calculate the bsr indptr
+        indptr = np.zeros(spmat.outer_shape[0] + 1, dtype = np.int64)
+        np.cumsum(np.bincount(row, minlength = spmat.outer_shape[0]), out = indptr[1:])
+        
+        # calculate the bsc indptr
+        # first, sort in col-major order
+   
+        coords_swap = np.asarray((col, row))
+        linear_loc = np.ravel_multi_index(coords_swap , spmat.outer_shape[::-1])
+        order = np.argsort(linear_loc)
+        coords_col_major = coords_swap[:, order] 
+        indptr_col = np.zeros(spmat.outer_shape[1] + 1, dtype = np.int64)
+        np.cumsum(np.bincount(coords_col_major[0], minlength = spmat.outer_shape[1]), out = indptr_col[1:])
+        
+        connected_vertex_from_row = [col[indptr[i] : indptr[i + 1]] \
+                for i in xrange(spmat.outer_shape[0])]
+        
+        connected_vertex_from_col = [coords_col_major[1][indptr_col[i] : indptr_col[i + 1]] \
+                for i in xrange(spmat.outer_shape[1])]
+        
+        is_grouped = np.zeros(spmat.outer_shape, dtype = np.bool)
+        is_grouped_row = np.zeros(spmat.outer_shape[0], dtype = np.bool)  
+        is_grouped_col = np.zeros(spmat.outer_shape[1], dtype = np.bool) 
+        
+        group_collect = []
+
+        for i in xrange(spmat.outer_shape[0]):
+            if is_grouped_row[i]:
+                continue
+            group = []
+            stack = []
+
+            stack.extend(zip([i] * len(connected_vertex_from_row[i]), connected_vertex_from_row[i]))
+            
+            is_grouped_row[i] = True
+           
+            # deep first search
+            while(len(stack) > 0):
+                vertex = stack.pop()
+                x, y = vertex
+
+                if is_grouped[x, y]:
+                    continue
+                else:
+                    group.append(vertex)
+                    is_grouped[x, y] = True
+
+                if is_grouped_row[x]:
+
+                    if is_grouped_col[y]:
+                        continue
+                    else:
+                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+                        is_grouped_col[y] = True
+
+                else:
+                    if is_grouped_col[y]:
+                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+                        is_grouped_row[x] = True
+                        
+                    else:
+                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+                        is_grouped_col[y] = True
+                        is_grouped_row[x] = True
+
+            if group != []:
+                group_collect.append(group)
+        
+        return group_collect
+
+
+

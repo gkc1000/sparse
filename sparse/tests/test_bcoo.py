@@ -326,6 +326,9 @@ def test_broadcast():
     y = x.broadcast_to((4,6,5,3,4,4),(2,3,5,3,2,1))
     assert_eq(b,y)
 
+def test_get_connected_component():
+
+
 
 
 if __name__ == '__main__':
