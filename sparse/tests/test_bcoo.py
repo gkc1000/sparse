@@ -6,6 +6,7 @@ import sparse
 from sparse import BDOK
 from sparse import BCOO
 from sparse.butils import assert_eq
+from sparse.bcoo import bcore
 
 import pytest
 
@@ -327,6 +328,15 @@ def test_broadcast():
     assert_eq(b,y)
 
 def test_get_connected_component():
+    x = sparse.brandom((15, 8), (3, 2), 0.2, format='bcoo')
+    #x += x.T
+    y = x.todense()
+    
+    group_collect =  bcore.get_connected_component(x, sym = False)
+    
+    sub_coords, sub_offsets, sub_shapes = bcore.index_full2sub(group_collect)
+    group_collect_convert_back = bcore.index_sub2full(sub_coords, sub_offsets) 
+    assert(group_collect == group_collect_convert_back) 
 
 
 
@@ -342,3 +352,4 @@ if __name__ == '__main__':
     test_to_coo()
     test_from_coo()
     test_broadcast()
+    test_get_connected_component()

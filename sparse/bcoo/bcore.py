@@ -2147,4 +2147,109 @@ def get_connected_component(spmat, sym = False):
         return group_collect
 
 
+#def get_range_of_sub_blocks(group_collect, return_xy = True):
+#    if return_xy:
+#        range_collect = []
+#        x_collect = []
+#        y_collect = []
+#        for group in group_collect:
+#            x_arr, y_arr = np.array(zip(*group))
+#            x_collect.append(x_arr)
+#            y_collect.append(y_arr)
+#            range_collect.append([(min(x_arr), min(y_arr)),(max(x_arr), max(y_arr))])
+#        return range_collect, x_collect, y_collect
+#    else:
+#        range_collect = []
+#        for group in group_collect:
+#            x_arr, y_arr = np.array(zip(*group))
+#            range_collect.append([(min(x_arr), min(y_arr)),(max(x_arr), max(y_arr))])
+#        return range_collect
+
+def get_xy_of_sub_blocks(group_collect):
+    """
+    Get ndarray format of x and y for a group of sub block indices.
+    Each group gives a x_arr and y_arr.
+
+    Parameters
+    ----------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    Returns
+    -------
+    x_collect : list of ndarray
+        Each element of the list is the collection of x indices in that group.
+    y_collect : list of ndarray
+        Each element of the list is the collection of y indices in that group.
+
+    """
+    x_collect = []
+    y_collect = []
+    for group in group_collect:
+        x_arr, y_arr = np.array(zip(*group))
+        x_collect.append(x_arr)
+        y_collect.append(y_arr)
+    return x_collect, y_collect
+
+def index_full2sub(group_collect):
+    """
+    For each group of indices, get corresponding indices in the subblock, 
+    as well as xy offsets and subblock shape. 
+
+    Parameters
+    ----------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    Returns
+    -------
+    sub_coords : list of (list of tuple)
+        Sub block coords of each group.
+    sub_offsets : list of (tuple of ndarray)
+        Index offsets to restore the indices of full matrix. Each tuple is (x_offset, y_offset) of a group.
+    sub_shapes : list of tuple
+        Sub block shape of each group.
+
+    """
+    
+    x_collect, y_collect = get_xy_of_sub_blocks(group_collect) 
+    
+    sub_shapes = []
+    sub_coords = []
+    sub_offsets = []
+
+    # TODO maybe vectorize
+    for x_collect_i, y_collect_i in zip(x_collect, y_collect):
+        unique_x, x_new = np.unique(x_collect_i, return_inverse = True)
+        unique_y, y_new = np.unique(y_collect_i, return_inverse = True)
+        
+        sub_coords.append(zip(x_new, y_new))
+        sub_offsets.append((x_collect_i - x_new, y_collect_i - y_new))
+        sub_shapes.append((len(unique_x), len(unique_y)))
+    return sub_coords, sub_offsets, sub_shapes
+
+def index_sub2full(sub_coords, sub_offsets, *args):
+    """
+    Inverse map from sub block indices to full block indices.
+
+    Parameters
+    ----------
+    sub_coords : list of (list of tuple)
+        Sub block coords of each group.
+    sub_offsets : list of (tuple of ndarray)
+        Index offsets to restore the indices of full matrix. Each tuple is (x_offset, y_offset) of a group.
+
+    Returns
+    -------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    """
+    
+    group_collect = []
+    for i, coord in enumerate(sub_coords):
+        x_arr, y_arr = np.asarray(zip(*coord))
+        group_collect.append(zip(x_arr + sub_offsets[i][0], y_arr + sub_offsets[i][1]))
+    return group_collect
+
 
