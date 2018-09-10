@@ -386,7 +386,11 @@ def test_block_svd():
     #print vt_np[[0,2,1,3], :]
 
 
-
+def test_eigh2():
+    x = sparse.brandom((6, 6), (2, 2), 0.2, format='bcoo')
+    y = x + x.T
+    print y.todense()
+    
 
 if __name__ == '__main__':
     print("\n main test \n")

@@ -1990,7 +1990,7 @@ def get_connected_component(spmat, sym = False):
     Get connected component of a BCOO matrix.
     Assume the matrix (graph) is undirected, i.e. if spmat[i, j] has connection,
     then spmat[j, i] also has connection.
-    Use deep first search.
+    Use depth first search.
 
     Parameters
     ----------
@@ -2496,20 +2496,25 @@ def block_eigh(spmat):
     from scipy.linalg import eigh
     from ..bdok import BDOK
     submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = True)
-    eigval_collect = []
+    #eigval_collect = []
+    eigval_bdok_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
     eigvec_bdok_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
 
     for i, submat_dense in enumerate(submat_dense_collect):
         eigval, eigvec = eigh(submat_dense)
-        eigval_collect.append(eigval)
+        #eigval_collect.append(eigval)
+        eigval_bdok_sub = BDOK(np.diagonal(eigval),
+                               block_shape = spmat.block_shape)
         eigvec_bdok_sub = BDOK(eigvec, block_shape = spmat.block_shape)
+        
         sub_coord_i = eigvec_bdok_sub.data.keys()
         group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
         
         for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
             eigvec_bdok_full[idx_full] = eigvec_bdok_sub[idx_sub] 
-
-    return eigval_collect, BCOO(eigvec_bdok_full)
+            eigval_bdok_full[idx_full] = eigval_bdok_sub[idx_sub]
+            
+    return BCOO(eigval_bdok_full), BCOO(eigvec_bdok_full)
 
 
 
