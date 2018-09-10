@@ -339,7 +339,11 @@ def test_get_connected_component():
     assert(group_collect == group_collect_convert_back) 
 
 
-
+def test_eigh2():
+    x = sparse.brandom((6, 6), (2, 2), 0.2, format='bcoo')
+    y = x + x.T
+    print y.todense()
+    
 
 if __name__ == '__main__':
     print("\n main test \n")
