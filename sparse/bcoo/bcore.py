@@ -2397,56 +2397,98 @@ def get_sub_blocks(spmat, sym = False):
     # ZHC TODO return less objects to reduce memory requirements?
     return submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect
 
+#def block_svd(spmat):
+#    from scipy.linalg import svd
+#    from ..bdok import BDOK
+#    submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = False)
+#    sigma_collect = []
+#    K = min(spmat.shape)
+#    u_shape = (spmat.shape[0], K)
+#    vt_shape = (K, spmat.shape[1])
+#    
+#    K_block = min(spmat.block_shape)
+#
+#    if spmat.shape[0] >= spmat.shape[1]:    
+#        u_block_shape = spmat.block_shape
+#        vt_block_shape = (spmat.block_shape[1], spmat.block_shape[1])
+#    else:
+#        vt_block_shape = spmat.block_shape
+#        u_block_shape = (spmat.block_shape[0], spmat.block_shape[0])
+#
+#    u_bdok_full = BDOK(u_shape, block_shape = u_block_shape)
+#    vt_bdok_full = BDOK(vt_shape, block_shape = vt_block_shape)
+#    #sigma_collect_reordered = np.zeros()
+#
+#    for i, submat_dense in enumerate(submat_dense_collect): 
+#        u, sigma, vt = svd(submat_dense, full_matrices = False)
+#        sigma_collect.append(sigma)
+#        #print u.shape
+#        #print u_block_shape
+#        #exit()
+#        u_bdok_sub = BDOK(u, block_shape = u_block_shape)
+#        vt_bdok_sub = BDOK(vt, block_shape = vt_block_shape)
+#        
+#        if spmat.shape[0] >= spmat.shape[1]:    
+#
+#            sub_coord_i = u_bdok_sub.data.keys()
+#            group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
+#            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+#                u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
+#            sub_coord_i = vt_bdok_sub.data.keys()
+#            group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'y')
+#            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+#                vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
+#            #sigma_collect_reordered.append(index_sub2full_singular_val(sigma, sub_offsets[i], multi_group = False,
+#            #    mindim = 'y'))
+#        else:
+#            sub_coord_i = vt_bdok_sub.data.keys()
+#            print sub_offsets[i]
+#            group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
+#            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+#                vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
+#            sub_coord_i = u_bdok_sub.data.keys()
+#            group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'x')
+#            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+#                u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
+#            #sigma_collect_reordered.append(index_sub2full_singular_val(sigma, sub_offsets[i], multi_group = False,
+#            #    mindim = 'x'))
+#
+#    return BCOO(u_bdok_full), sigma_collect, BCOO(vt_bdok_full) #, sigma_collect_reordered
+
 def block_svd(spmat):
     from scipy.linalg import svd
     from ..bdok import BDOK
     submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = False)
     sigma_collect = []
-    K = min(spmat.shape)
-    u_shape = (spmat.shape[0], K)
-    vt_shape = (K, spmat.shape[1])
-    if spmat.shape[0] >= spmat.shape[1]:    
-        u_block_shape = spmat.block_shape
-        vt_block_shape = (spmat.block_shape[1], spmat.block_shape[1])
-    else:
-        vt_block_shape = spmat.block_shape
-        u_block_shape = (spmat.block_shape[0], spmat.block_shape[0])
+    #K = min(spmat.shape)
+    u_shape = (spmat.shape[0], spmat.shape[0])
+    vt_shape = (spmat.shape[1], spmat.shape[1])
+    
+    #K_block = min(spmat.block_shape)
 
+    u_block_shape = (spmat.block_shape[0], spmat.block_shape[0])
+    vt_block_shape = (spmat.block_shape[1], spmat.block_shape[1])
 
     u_bdok_full = BDOK(u_shape, block_shape = u_block_shape)
     vt_bdok_full = BDOK(vt_shape, block_shape = vt_block_shape)
     #sigma_collect_reordered = np.zeros()
 
     for i, submat_dense in enumerate(submat_dense_collect): 
-        u, sigma, vt = svd(submat_dense, full_matrices = False)
+        u, sigma, vt = svd(submat_dense, full_matrices = True)
         sigma_collect.append(sigma)
+        
         u_bdok_sub = BDOK(u, block_shape = u_block_shape)
         vt_bdok_sub = BDOK(vt, block_shape = vt_block_shape)
         
-        if spmat.shape[0] >= spmat.shape[1]:    
-
-            sub_coord_i = u_bdok_sub.data.keys()
-            group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
-            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
-                u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
-            sub_coord_i = vt_bdok_sub.data.keys()
-            group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'y')
-            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
-                vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
-            #sigma_collect_reordered.append(index_sub2full_singular_val(sigma, sub_offsets[i], multi_group = False,
-            #    mindim = 'y'))
-        else:
-            sub_coord_i = vt_bdok_sub.data.keys()
-            group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
-            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
-                vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
-            sub_coord_i = u_bdok_sub.data.keys()
-            group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'x')
-            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
-                u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
-            #sigma_collect_reordered.append(index_sub2full_singular_val(sigma, sub_offsets[i], multi_group = False,
-            #    mindim = 'x'))
-
+        sub_coord_i = u_bdok_sub.data.keys()
+        group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'x')
+        for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+            u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
+        sub_coord_i = vt_bdok_sub.data.keys()
+        group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'y')
+        for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+            vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
+    
     return BCOO(u_bdok_full), sigma_collect, BCOO(vt_bdok_full) #, sigma_collect_reordered
 
 def block_eigh(spmat):

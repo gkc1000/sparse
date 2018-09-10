@@ -354,6 +354,7 @@ def test_block_eigh():
     y = x.todense()
     eigvec_sp = bcore.block_eigh(x)[1].todense()
     diagonalized_mat_sp = eigvec_sp.T.dot(x.todense().dot(eigvec_sp))
+    #print bcore.block_eigh(x)[1]
 
     assert(is_diagonal(diagonalized_mat_sp))
     eigval_np = np.linalg.eigh(x.todense())[0]
@@ -362,7 +363,7 @@ def test_block_eigh():
 def test_block_svd():
     
     np.set_printoptions(3, linewidth = 1000, suppress = True)
-    x = sparse.brandom((8, 16), (4, 2), 0.3, format='bcoo')
+    x = sparse.brandom((15, 8), (3, 2), 0.3, format='bcoo')
     '''
     a = np.zeros((8, 4))
     a[0:2, 2:4] = np.arange(1, 5).reshape((2, 2))
