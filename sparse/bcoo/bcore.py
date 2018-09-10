@@ -2303,6 +2303,76 @@ def index_sub2full(sub_coords, sub_offsets, multi_group = True):
         x_arr, y_arr = np.asarray(zip(*sub_coords))
         return zip(x_arr + sub_offsets[0][x_arr], y_arr + sub_offsets[1][y_arr])
 
+def index_sub2full_svd(sub_coords, sub_offsets, multi_group = False, mindim = 'x'):
+    """
+    Inverse map from sub block indices to full block indices.
+
+    Parameters
+    ----------
+    sub_coords : list of (list of tuple) or list of tuple if multi_group = False
+        Sub block coords of each group.
+    sub_offsets : list of (tuple of ndarray) or tuple of ndarray if multi_group = False
+        Index offsets to restore the indices of full matrix. Each tuple is (x_offset, y_offset) of a group.
+    multi_group: bool
+        See above.
+
+    Returns
+    -------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    """
+    if False:
+        group_collect = []
+        for i, coord in enumerate(sub_coords):
+            x_arr, y_arr = np.asarray(zip(*coord))
+            group_collect.append(zip(x_arr + sub_offsets[i][0][x_arr], y_arr + sub_offsets[i][1][y_arr]))
+        return group_collect
+    else:
+        x_arr, y_arr = np.asarray(zip(*sub_coords))
+        if mindim == 'x':
+            return zip(x_arr + sub_offsets[0][x_arr], y_arr + sub_offsets[0][y_arr])
+        elif mindim == 'y':
+            return zip(x_arr + sub_offsets[1][x_arr], y_arr + sub_offsets[1][y_arr])
+        else:
+            raise ValueError
+
+def index_sub2full_singular_val(sub_coords, sub_offsets, multi_group = False, mindim = 'x'):
+    """
+    Inverse map from sub block indices to full block indices.
+
+    Parameters
+    ----------
+    sub_coords : list of (list of tuple) or list of tuple if multi_group = False
+        Sub block coords of each group.
+    sub_offsets : list of (tuple of ndarray) or tuple of ndarray if multi_group = False
+        Index offsets to restore the indices of full matrix. Each tuple is (x_offset, y_offset) of a group.
+    multi_group: bool
+        See above.
+
+    Returns
+    -------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    """
+    if False:
+        group_collect = []
+        for i, coord in enumerate(sub_coords):
+            x_arr, y_arr = np.asarray(zip(*coord))
+            group_collect.append(zip(x_arr + sub_offsets[i][0][x_arr], y_arr + sub_offsets[i][1][y_arr]))
+        return group_collect
+    else:
+        #eig_arr = np.asarray(sub_coords)
+        eig_arr = np.arange(len(sub_coords))
+        if mindim == 'x':
+            return eig_arr + sub_offsets[0][eig_arr]
+        elif mindim == 'y':
+            return eig_arr + sub_offsets[1][eig_arr]
+        else:
+            raise ValueError
+
+
 
 def get_sub_blocks(spmat, sym = False):
     from ..bdok import BDOK
@@ -2329,16 +2399,55 @@ def get_sub_blocks(spmat, sym = False):
 
 def block_svd(spmat):
     from scipy.linalg import svd
+    from ..bdok import BDOK
     submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = False)
-    for submat_dense in submat_dense_collect:
-        
-        
+    sigma_collect = []
+    K = min(spmat.shape)
+    u_shape = (spmat.shape[0], K)
+    vt_shape = (K, spmat.shape[1])
+    if spmat.shape[0] >= spmat.shape[1]:    
+        u_block_shape = spmat.block_shape
+        vt_block_shape = (spmat.block_shape[1], spmat.block_shape[1])
+    else:
+        vt_block_shape = spmat.block_shape
+        u_block_shape = (spmat.block_shape[0], spmat.block_shape[0])
+
+
+    u_bdok_full = BDOK(u_shape, block_shape = u_block_shape)
+    vt_bdok_full = BDOK(vt_shape, block_shape = vt_block_shape)
+    #sigma_collect_reordered = np.zeros()
+
+    for i, submat_dense in enumerate(submat_dense_collect): 
         u, sigma, vt = svd(submat_dense, full_matrices = False)
-        print "test"
-        print submat_dense
-        print u.shape
-        print sigma.shape
-        print vt.shape
+        sigma_collect.append(sigma)
+        u_bdok_sub = BDOK(u, block_shape = u_block_shape)
+        vt_bdok_sub = BDOK(vt, block_shape = vt_block_shape)
+        
+        if spmat.shape[0] >= spmat.shape[1]:    
+
+            sub_coord_i = u_bdok_sub.data.keys()
+            group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
+            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+                u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
+            sub_coord_i = vt_bdok_sub.data.keys()
+            group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'y')
+            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+                vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
+            #sigma_collect_reordered.append(index_sub2full_singular_val(sigma, sub_offsets[i], multi_group = False,
+            #    mindim = 'y'))
+        else:
+            sub_coord_i = vt_bdok_sub.data.keys()
+            group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
+            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+                vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
+            sub_coord_i = u_bdok_sub.data.keys()
+            group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'x')
+            for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+                u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
+            #sigma_collect_reordered.append(index_sub2full_singular_val(sigma, sub_offsets[i], multi_group = False,
+            #    mindim = 'x'))
+
+    return BCOO(u_bdok_full), sigma_collect, BCOO(vt_bdok_full) #, sigma_collect_reordered
 
 def block_eigh(spmat):
 
@@ -2358,7 +2467,7 @@ def block_eigh(spmat):
         for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
             eigvec_bdok_full[idx_full] = eigvec_bdok_sub[idx_sub] 
 
-    return BCOO(eigvec_bdok_full)
+    return eigval_collect, BCOO(eigvec_bdok_full)
 
 
 
