@@ -240,7 +240,26 @@ def test_einsum_mix_types():
     elemC = np.einsum('ijklm,ijn->lnmk', x_d, y_d)
     assert_eq(elemC, c)
 
+def test_einsum_broadcast():
+    shape_x = (8,6)
+    block_shape_x = (2,2)
+    x = sparse.brandom(shape_x, block_shape_x, 0.3, format='bcoo')
+    x_d = x.todense()
+
+    shape_y = (8,6,6)
+    block_shape_y = (2,2,2)
+    y = sparse.brandom(shape_y, block_shape_y, 0.3, format='bcoo')
+    y_d = y.todense()
+
+    elemC = np.einsum("ij,klm->ijklm", x_d, y_d)
+    c= bcalc.einsum("ij,klm->ijklm", x, y, DEBUG=False)
+    assert_eq(elemC, c)
+
+
+
+
 if __name__ == '__main__':
     test_einsum_zeros()
     test_einsum_mix_types()
+    test_einsum_broadcast()
 

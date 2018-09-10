@@ -1981,3 +1981,384 @@ def _grouped_reduce(x, groups, method, **kwargs):
     result = method.reduceat(x, inv_idx, **kwargs)
     counts = np.diff(np.concatenate((inv_idx, [len(x)])))
     return result, inv_idx, counts
+
+
+## ZHC TODO
+## add sort of coords ? 
+def get_connected_component(spmat, sym = False):
+    """
+    Get connected component of a BCOO matrix.
+    Assume the matrix (graph) is undirected, i.e. if spmat[i, j] has connection,
+    then spmat[j, i] also has connection.
+    Use deep first search.
+
+    Parameters
+    ----------
+    spmat : BCOO
+        The input matrix.
+    sym : bool
+        Indicate whether the matrix is symmetric.
+
+    Returns
+    -------
+    group_collect : list of tuple, each tuple is a pair of (x, y) block indices.
+        A collection of grouped *block* indices.
+
+    """
+
+    if sym:
+        # ZHC NOTE
+        # symmetric means that the two '*' should belong to the same group(block) !
+        #
+        # 0 * 0
+        # * 0 0
+        # 0 0 0
+        # 
+
+        row, col = spmat.coords
+        # calculate the bsr indptr
+        indptr = np.zeros(spmat.outer_shape[0] + 1, dtype = np.int64)
+        np.cumsum(np.bincount(row, minlength = spmat.outer_shape[0]), out = indptr[1:])
+        
+        connected_vertex_from_row = [col[indptr[i] : indptr[i + 1]] \
+                for i in xrange(spmat.outer_shape[0])]
+
+        is_grouped = np.zeros(spmat.outer_shape[0], dtype = np.bool)  
+        group_collect = []
+
+        for i in xrange(spmat.outer_shape[0]):
+            if is_grouped[i]:
+                continue
+            group = []
+            stack = []
+
+            stack.extend(connected_vertex_from_row[i])
+           
+            # deep first search
+            while(len(stack) > 0):
+                vertex = stack.pop()
+                if is_grouped[vertex]:
+                    continue
+                group.extend(zip([vertex] * len(connected_vertex_from_row[vertex]), connected_vertex_from_row[vertex]))
+                is_grouped[vertex] = True
+                stack.extend(connected_vertex_from_row[vertex])
+            if group != []:
+                group_collect.append(group)
+        
+        return group_collect
+
+#        row, col = spmat.coords
+#        # calculate the bsr indptr
+#        indptr = np.zeros(spmat.outer_shape[0] + 1, dtype = np.int64)
+#        np.cumsum(np.bincount(row, minlength = spmat.outer_shape[0]), out = indptr[1:])
+#        
+#        # calculate the bsc indptr
+#        # first, sort in col-major order
+#   
+#        coords_col_major = spmat.coords
+#        indptr_col = indptr 
+#        
+#        connected_vertex_from_row = [col[indptr[i] : indptr[i + 1]] \
+#                for i in xrange(spmat.outer_shape[0])]
+#        
+#        connected_vertex_from_col = connected_vertex_from_row 
+#        
+#        is_grouped = np.zeros(spmat.outer_shape, dtype = np.bool)
+#        is_grouped_row = np.zeros(spmat.outer_shape[0], dtype = np.bool)  
+#        is_grouped_col = np.zeros(spmat.outer_shape[1], dtype = np.bool) 
+#        
+#        group_collect = []
+#
+#        for i in xrange(spmat.outer_shape[0]):
+#            if is_grouped_row[i]:
+#                continue
+#            group = []
+#            stack = []
+#
+#            stack.extend(zip([i] * len(connected_vertex_from_row[i]), connected_vertex_from_row[i]))
+#            
+#            is_grouped_row[i] = True
+#           
+#            # deep first search
+#            while(len(stack) > 0):
+#                vertex = stack.pop()
+#                x, y = vertex
+#
+#                if is_grouped[x, y]:
+#                    continue
+#                else:
+#                    group.append(vertex)
+#                    is_grouped[x, y] = True
+#
+#                if is_grouped_row[x]:
+#
+#                    if is_grouped_col[y]:
+#                        continue
+#                    else:
+#                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+#                        is_grouped_col[y] = True
+#
+#                else:
+#                    if is_grouped_col[y]:
+#                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+#                        is_grouped_row[x] = True
+#                        
+#                    else:
+#                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+#                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+#                        is_grouped_col[y] = True
+#                        is_grouped_row[x] = True
+#
+#            if group != []:
+#                group_collect.append(group)
+#        
+#        return group_collect
+
+    else: # not symmetric
+        row, col = spmat.coords
+        # calculate the bsr indptr
+        indptr = np.zeros(spmat.outer_shape[0] + 1, dtype = np.int64)
+        np.cumsum(np.bincount(row, minlength = spmat.outer_shape[0]), out = indptr[1:])
+        
+        # calculate the bsc indptr
+        # first, sort in col-major order
+   
+        coords_swap = np.asarray((col, row))
+        linear_loc = np.ravel_multi_index(coords_swap , spmat.outer_shape[::-1])
+        order = np.argsort(linear_loc)
+        coords_col_major = coords_swap[:, order] 
+        indptr_col = np.zeros(spmat.outer_shape[1] + 1, dtype = np.int64)
+        np.cumsum(np.bincount(coords_col_major[0], minlength = spmat.outer_shape[1]), out = indptr_col[1:])
+        
+        connected_vertex_from_row = [col[indptr[i] : indptr[i + 1]] \
+                for i in xrange(spmat.outer_shape[0])]
+        
+        connected_vertex_from_col = [coords_col_major[1][indptr_col[i] : indptr_col[i + 1]] \
+                for i in xrange(spmat.outer_shape[1])]
+        
+        is_grouped = np.zeros(spmat.outer_shape, dtype = np.bool)
+        is_grouped_row = np.zeros(spmat.outer_shape[0], dtype = np.bool)  
+        is_grouped_col = np.zeros(spmat.outer_shape[1], dtype = np.bool) 
+        
+        group_collect = []
+
+        for i in xrange(spmat.outer_shape[0]):
+            if is_grouped_row[i]:
+                continue
+            group = []
+            stack = []
+
+            stack.extend(zip([i] * len(connected_vertex_from_row[i]), connected_vertex_from_row[i]))
+            
+            is_grouped_row[i] = True
+           
+            # deep first search
+            while(len(stack) > 0):
+                vertex = stack.pop()
+                x, y = vertex
+
+                if is_grouped[x, y]:
+                    continue
+                else:
+                    group.append(vertex)
+                    is_grouped[x, y] = True
+
+                if is_grouped_row[x]:
+
+                    if is_grouped_col[y]:
+                        continue
+                    else:
+                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+                        is_grouped_col[y] = True
+
+                else:
+                    if is_grouped_col[y]:
+                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+                        is_grouped_row[x] = True
+                        
+                    else:
+                        stack.extend(zip(connected_vertex_from_col[y], [y] * len(connected_vertex_from_col[y])))
+                        stack.extend(zip([x] * len(connected_vertex_from_row[x]), connected_vertex_from_row[x]))
+                        is_grouped_col[y] = True
+                        is_grouped_row[x] = True
+
+            if group != []:
+                group_collect.append(group)
+        
+        return group_collect
+
+
+#def get_range_of_sub_blocks(group_collect, return_xy = True):
+#    if return_xy:
+#        range_collect = []
+#        x_collect = []
+#        y_collect = []
+#        for group in group_collect:
+#            x_arr, y_arr = np.array(zip(*group))
+#            x_collect.append(x_arr)
+#            y_collect.append(y_arr)
+#            range_collect.append([(min(x_arr), min(y_arr)),(max(x_arr), max(y_arr))])
+#        return range_collect, x_collect, y_collect
+#    else:
+#        range_collect = []
+#        for group in group_collect:
+#            x_arr, y_arr = np.array(zip(*group))
+#            range_collect.append([(min(x_arr), min(y_arr)),(max(x_arr), max(y_arr))])
+#        return range_collect
+
+def get_xy_of_sub_blocks(group_collect):
+    """
+    Get ndarray format of x and y for a group of sub block indices.
+    Each group gives a x_arr and y_arr.
+
+    Parameters
+    ----------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    Returns
+    -------
+    x_collect : list of ndarray
+        Each element of the list is the collection of x indices in that group.
+    y_collect : list of ndarray
+        Each element of the list is the collection of y indices in that group.
+
+    """
+    x_collect = []
+    y_collect = []
+    for group in group_collect:
+        x_arr, y_arr = np.array(zip(*group))
+        x_collect.append(x_arr)
+        y_collect.append(y_arr)
+    return x_collect, y_collect
+
+def index_full2sub(group_collect):
+    """
+    For each group of indices, get corresponding indices in the subblock, 
+    as well as xy offsets and subblock shape. 
+
+    Parameters
+    ----------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    Returns
+    -------
+    sub_coords : list of (list of tuple)
+        Sub block coords of each group.
+    sub_offsets : list of (tuple of ndarray)
+        Index offsets to restore the indices of full matrix. Each tuple is (x_offset, y_offset) of a group.
+    sub_shapes : list of tuple
+        Sub block shape of each group.
+
+    """
+    
+    x_collect, y_collect = get_xy_of_sub_blocks(group_collect) 
+    
+    sub_shapes = []
+    sub_coords = []
+    sub_offsets = []
+
+    # TODO maybe vectorize
+    for x_collect_i, y_collect_i in zip(x_collect, y_collect):
+        x_unique, x_new = np.unique(x_collect_i, return_inverse = True)
+        y_unique, y_new = np.unique(y_collect_i, return_inverse = True)
+        
+        sub_coords.append(zip(x_new, y_new))
+    
+        x_offset = x_unique - np.unique(x_new)
+        y_offset = y_unique - np.unique(y_new)
+        sub_offsets.append((x_offset, y_offset))
+        #sub_offsets.append((x_collect_i - x_new, y_collect_i - y_new))
+        
+        sub_shapes.append((len(x_unique), len(y_unique)))
+    return sub_coords, sub_offsets, sub_shapes
+
+def index_sub2full(sub_coords, sub_offsets, multi_group = True):
+    """
+    Inverse map from sub block indices to full block indices.
+
+    Parameters
+    ----------
+    sub_coords : list of (list of tuple) or list of tuple if multi_group = False
+        Sub block coords of each group.
+    sub_offsets : list of (tuple of ndarray) or tuple of ndarray if multi_group = False
+        Index offsets to restore the indices of full matrix. Each tuple is (x_offset, y_offset) of a group.
+    multi_group: bool
+        See above.
+
+    Returns
+    -------
+    group_collect : list of (list of tuple)
+        The groups of x, y indices.
+
+    """
+    if multi_group:
+        group_collect = []
+        for i, coord in enumerate(sub_coords):
+            x_arr, y_arr = np.asarray(zip(*coord))
+            group_collect.append(zip(x_arr + sub_offsets[i][0][x_arr], y_arr + sub_offsets[i][1][y_arr]))
+        return group_collect
+    else:
+        x_arr, y_arr = np.asarray(zip(*sub_coords))
+        return zip(x_arr + sub_offsets[0][x_arr], y_arr + sub_offsets[1][y_arr])
+
+
+def get_sub_blocks(spmat, sym = False):
+    from ..bdok import BDOK
+    spmat_bdok = BDOK(spmat)
+    group_collect = get_connected_component(spmat, sym)
+    sub_coords, sub_offsets, sub_shapes = index_full2sub(group_collect)
+    
+    #data_collect = []
+    submat_bdok_collect = []
+    submat_dense_collect = []
+    for i, group_i in enumerate(group_collect):
+        data_i = [spmat_bdok[idx] for idx in group_i]
+        #data_collect.append(data_i)
+
+        data_dict = dict(zip(sub_coords[i], data_i))
+        shape = tuple(np.multiply(sub_shapes[i], spmat.block_shape))
+        submat_bdok = BDOK(shape, block_shape = spmat.block_shape, data = data_dict)
+        submat_dense = submat_bdok.todense()
+        submat_bdok_collect.append(submat_bdok)
+        submat_dense_collect.append(submat_dense)
+
+    # ZHC TODO return less objects to reduce memory requirements?
+    return submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect
+
+def block_svd(spmat):
+    from scipy.linalg import svd
+    submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = False)
+    for submat_dense in submat_dense_collect:
+        
+        
+        u, sigma, vt = svd(submat_dense, full_matrices = False)
+        print "test"
+        print submat_dense
+        print u.shape
+        print sigma.shape
+        print vt.shape
+
+def block_eigh(spmat):
+
+    from scipy.linalg import eigh
+    from ..bdok import BDOK
+    submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = True)
+    eigval_collect = []
+    eigvec_bdok_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
+
+    for i, submat_dense in enumerate(submat_dense_collect):
+        eigval, eigvec = eigh(submat_dense)
+        eigval_collect.append(eigval)
+        eigvec_bdok_sub = BDOK(eigvec, block_shape = spmat.block_shape)
+        sub_coord_i = eigvec_bdok_sub.data.keys()
+        group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
+        
+        for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+            eigvec_bdok_full[idx_full] = eigvec_bdok_sub[idx_sub] 
+
+    return BCOO(eigvec_bdok_full)
+
+
+

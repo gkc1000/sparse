@@ -135,8 +135,27 @@ def test_asformat():
 
     assert_eq(s, s2)
 
+
+def test_bcoo_related():
+    s = sparse.brandom((10, 10), (2, 2), 0.3, format='bdok')
+    s2 = s.asformat('bcoo')
+    
+    #s2 = s.asformat('bdok')
+
+    #s = sparse.brandom((4, 3), (2, 1), 0.5, format='bdok')
+    #x = np.array([[1,-1,0,0],[1,-1,0,0],[2,2,3,3],[2,2,3,3]])
+    #s = BDOK(x, block_shape = (2, 2))
+    #s2 = s.asformat('bcoo')
+
+    print s.data
+    exit()
+    assert_eq(s, s2)
+
+
+
 if __name__ == '__main__':
     print("\n main test \n")
+    test_bcoo_related()
     test_convert_to_numpy()
     test_convert_from_numpy()
     test_getitem()
