@@ -2405,20 +2405,25 @@ def block_svd(spmat):
     K = min(spmat.shape)
     u_shape = (spmat.shape[0], K)
     vt_shape = (K, spmat.shape[1])
+    if spmat.shape[0] >= spmat.shape[1]:    
+        u_block_shape = spmat.block_shape
+        vt_block_shape = (spmat.block_shape[1], spmat.block_shape[1])
+    else:
+        vt_block_shape = spmat.block_shape
+        u_block_shape = (spmat.block_shape[0], spmat.block_shape[0])
 
-    u_bdok_full = BDOK(u_shape, block_shape = spmat.block_shape)
-    vt_bdok_full = BDOK(vt_shape, block_shape = spmat.block_shape)
+
+    u_bdok_full = BDOK(u_shape, block_shape = u_block_shape)
+    vt_bdok_full = BDOK(vt_shape, block_shape = vt_block_shape)
     #sigma_collect_reordered = np.zeros()
 
     for i, submat_dense in enumerate(submat_dense_collect): 
         u, sigma, vt = svd(submat_dense, full_matrices = False)
         sigma_collect.append(sigma)
+        u_bdok_sub = BDOK(u, block_shape = u_block_shape)
+        vt_bdok_sub = BDOK(vt, block_shape = vt_block_shape)
         
         if spmat.shape[0] >= spmat.shape[1]:    
-            u_block_shape = spmat.block_shape
-            vt_block_shape = (spmat.block_shape[1], spmat.block_shape[1])
-            u_bdok_sub = BDOK(u, block_shape = u_block_shape)
-            vt_bdok_sub = BDOK(vt, block_shape = vt_block_shape)
 
             sub_coord_i = u_bdok_sub.data.keys()
             group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
@@ -2431,10 +2436,6 @@ def block_svd(spmat):
             #sigma_collect_reordered.append(index_sub2full_singular_val(sigma, sub_offsets[i], multi_group = False,
             #    mindim = 'y'))
         else:
-            vt_block_shape = spmat.block_shape
-            u_block_shape = (spmat.block_shape[0], spmat.block_shape[0])
-            u_bdok_sub = BDOK(u, block_shape = u_block_shape)
-            vt_bdok_sub = BDOK(vt, block_shape = vt_block_shape)
             sub_coord_i = vt_bdok_sub.data.keys()
             group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
             for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):

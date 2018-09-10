@@ -362,7 +362,7 @@ def test_block_eigh():
 def test_block_svd():
     
     np.set_printoptions(3, linewidth = 1000, suppress = True)
-    x = sparse.brandom((8, 16), (2, 2), 0.3, format='bcoo')
+    x = sparse.brandom((8, 16), (4, 2), 0.3, format='bcoo')
     '''
     a = np.zeros((8, 4))
     a[0:2, 2:4] = np.arange(1, 5).reshape((2, 2))
