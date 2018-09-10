@@ -338,6 +338,52 @@ def test_get_connected_component():
     group_collect_convert_back = bcore.index_sub2full(sub_coords, sub_offsets) 
     assert(group_collect == group_collect_convert_back) 
 
+def test_block_eigh():
+    
+    def is_diagonal(A):
+        return np.allclose(A - np.diag(np.diagonal(A)), 0.0)
+    #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    x = sparse.brandom((16, 16), (4, 4), 0.2, format='bcoo')
+    x += x.T
+
+    # ZHC TODO
+    # support symmetric case with non-square block_shape
+    #x = x.to_coo()
+    #x = BCOO.from_coo(x, block_shape = (4,2)) 
+    
+    y = x.todense()
+    eigvec_sp = bcore.block_eigh(x)[1].todense()
+    diagonalized_mat_sp = eigvec_sp.T.dot(x.todense().dot(eigvec_sp))
+
+    assert(is_diagonal(diagonalized_mat_sp))
+    eigval_np = np.linalg.eigh(x.todense())[0]
+    assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
+
+def test_block_svd():
+    
+    np.set_printoptions(3, linewidth = 1000, suppress = True)
+    x = sparse.brandom((8, 16), (4, 2), 0.3, format='bcoo')
+    '''
+    a = np.zeros((8, 4))
+    a[0:2, 2:4] = np.arange(1, 5).reshape((2, 2))
+    a[4:8, 0:2] = np.arange(1, 9).reshape((4, 2))
+    x = BCOO.from_numpy(a, block_shape = (2, 2)) 
+    '''
+    y = x.todense()
+    print "original mat"
+    print y
+    u, sigma, vt = bcore.block_svd(x)
+    print sigma
+    #print sigma_reordered
+    print u.todense()
+    print vt.todense()
+    u_np, sigma_np, vt_np = np.linalg.svd(y, full_matrices = False)
+    print sigma_np
+    #print "np"
+    #print sigma_np[[0,2,1,3]]
+    #print u_np[:, [0,2,1,3]]
+    #print vt_np[[0,2,1,3], :]
+
 
 def test_eigh2():
     x = sparse.brandom((6, 6), (2, 2), 0.2, format='bcoo')
@@ -347,6 +393,8 @@ def test_eigh2():
 
 if __name__ == '__main__':
     print("\n main test \n")
+    test_block_svd()
+    exit()
     test_brandom()
     test_from_numpy()
     test_transpose(None)
@@ -357,3 +405,4 @@ if __name__ == '__main__':
     test_from_coo()
     test_broadcast()
     test_get_connected_component()
+    test_block_eigh()
