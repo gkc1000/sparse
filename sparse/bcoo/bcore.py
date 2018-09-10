@@ -1161,7 +1161,7 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         array([[ 2,  3],
                [ 6, 11]], dtype=int64)
         """
-        return dot(self, other)
+        return NotImplementedError
 
     def __matmul__(self, other):
         try:
@@ -2449,30 +2449,42 @@ def block_svd(spmat):
 
     return BCOO(u_bdok_full), sigma_collect, BCOO(vt_bdok_full) #, sigma_collect_reordered
 
-def block_eigh(spmat):
+def block_eigh(spmat, block_sort=True):
 
     from scipy.linalg import eigh
     from ..bdok import BDOK
     submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = True)
-    #eigval_collect = []
-    eigval_bdok_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
+    eigval_bdok_full = BDOK((spmat.shape[0],), block_shape = (spmat.block_shape[0],))
     eigvec_bdok_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
 
     for i, submat_dense in enumerate(submat_dense_collect):
         eigval, eigvec = eigh(submat_dense)
-        #eigval_collect.append(eigval)
-        eigval_bdok_sub = BDOK(np.diagonal(eigval),
-                               block_shape = spmat.block_shape)
+
+        # this will correctly only assign diagonal blocks
+        eigval_bdok_sub = BDOK(eigval,
+                               block_shape = (spmat.block_shape[0],))
+
+        for key in eigval_bdok_sub.data.keys():
+            offkey = (key[0] + sub_offsets[i][0][key],)
+            eigval_bdok_full[offkey] = eigval_bdok_sub[key]
+
         eigvec_bdok_sub = BDOK(eigvec, block_shape = spmat.block_shape)
-        
-        sub_coord_i = eigvec_bdok_sub.data.keys()
-        group_collect_i = index_sub2full(sub_coord_i, sub_offsets[i], multi_group = False)
-        
-        for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+        eigvec_sub_coord_i = eigvec_bdok_sub.data.keys()
+        eigvec_group_collect_i = index_sub2full(eigvec_sub_coord_i,
+                                                sub_offsets[i], multi_group = False)
+
+        for idx_full, idx_sub in zip(eigvec_group_collect_i, eigvec_sub_coord_i):
             eigvec_bdok_full[idx_full] = eigvec_bdok_sub[idx_sub] 
-            eigval_bdok_full[idx_full] = eigval_bdok_sub[idx_sub]
-            
-    return BCOO(eigval_bdok_full), BCOO(eigvec_bdok_full)
 
+    eigval = BCOO(eigval_bdok_full)
+    eigvec = BCOO(eigvec_bdok_full)
 
+    if block_sort:
+        eigval_norm = np.array([np.linalg.norm(d) for d in eigval.data])
+        ix = np.argsort(eigval_norm)
+        eigval.coords[0] = np.array([eigval.coords[0][i] for i in ix])
+        eigvec.coords[0] = np.array([eigvec.coords[0][i] for i in ix])
+        eigvec.coords[1] = np.array([eigvec.coords[1][i] for i in ix])
+        
+    return eigval, eigvec 
 

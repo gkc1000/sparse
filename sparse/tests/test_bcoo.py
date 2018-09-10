@@ -352,7 +352,13 @@ def test_block_eigh():
     #x = BCOO.from_coo(x, block_shape = (4,2)) 
     
     y = x.todense()
-    eigvec_sp = bcore.block_eigh(x)[1].todense()
+    #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
+    eigval_sp, eigvec_sp = bcore.block_eigh(x)
+    print eigval_sp
+    print eigvec_sp
+    eigval_sp = eigval_sp.todense()
+    eigvec_sp = eigvec_sp.todense()
+    
     diagonalized_mat_sp = eigvec_sp.T.dot(x.todense().dot(eigvec_sp))
 
     assert(is_diagonal(diagonalized_mat_sp))
