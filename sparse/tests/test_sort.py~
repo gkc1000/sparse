@@ -1,0 +1,7 @@
+import numpy as np
+
+coords = [1, 2, 3]
+data = [0.5, 0.1, 0.9]
+
+argix = np.argsort(data)
+

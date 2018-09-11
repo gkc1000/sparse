@@ -396,7 +396,7 @@ def test_block_eigh():
     
     y = x.todense()
     #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
-    eigval_sp_bcoo, eigvec_sp_bcoo = bcore.block_eigh(x, block_sort = True)
+    eigval_sp_bcoo, eigvec_sp_bcoo = bcore.block_eigh_(x, block_sort = True)
     #print eigval_sp
     #print eigvec_sp
     eigval_sp = eigval_sp_bcoo.todense()
