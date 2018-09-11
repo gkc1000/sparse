@@ -2188,6 +2188,7 @@ def get_connected_component(spmat, sym = False):
         return group_collect
 
 
+
 #def get_range_of_sub_blocks(group_collect, return_xy = True):
 #    if return_xy:
 #        range_collect = []
@@ -2373,6 +2374,10 @@ def index_sub2full_singular_val(sub_coords, sub_offsets, multi_group = False, mi
             raise ValueError
 
 
+    
+
+
+
 
 def get_sub_blocks(spmat, sym = False):
     from ..bdok import BDOK
@@ -2537,4 +2542,119 @@ def block_eigh(spmat, block_sort=True):
         eigvec = BCOO(eigvec_coords_sorted, shape = eigvec.shape, block_shape = eigvec.block_shape, data = eigvec.data)
         
     return eigval, eigvec 
+
+def get_clusters(coords, outer_shape):
+    adjacency = defaultdict(list)
+    rs, cs = coords
+    for r, c in zip(rs, cs):
+        adjacency[r].append(c)
+
+    visited = set()
+    clusters = []
+    
+    for r0 in range(outer_shape[0]):
+        if r0 not in visited:
+            stack = adjacency[r0][:]
+            cluster = []
+            while stack:
+                r = stack.pop()
+                if r not in visited:
+                    cluster += [(r, c) for c in adjacency[r]]
+                    stack += adjacency[r][:]
+                    visited.add(r)
+            if cluster: clusters.append(cluster)
+                
+    return clusters
+
+def get_clusters_nosym(coords, outer_shape):
+    row_adjacency = defaultdict(list)
+    col_adjacency = defaultdict(list)
+    rs, cs = coords
+    for r, c in zip(rs, cs):
+        row_adjacency[r].append((r, c))
+        col_adjacency[c].append((r, c))
+
+    visited = set();  visited_rs = set(); visited_cs = set()
+    clusters = []
+    
+    for r0 in range(outer_shape[0]):
+        if r0 not in visited_rs:
+            stack = row_adjacency[r0][:]; cluster = []
+
+            while stack:
+                r, c = stack.pop()
+                if (r, c) not in visited:
+                    cluster.append((r, c))
+                    visited.add((r, c))
+                    
+                    if r not in visited_rs:
+                        stack += row_adjacency[r][:]
+                        visited_rs.add(r)                        
+                    if c not in visited_cs:
+                        stack += col_adjacency[c][:]
+                        visited_cs.add(c)
+
+            if cluster: clusters.append(cluster)
+
+    return clusters
+
+#### these functions to be tested ####
+def index_full2cluster(coords):
+    rs, cs = zip(*coords)
+    rs = np.unique(rs)
+    cs = np.unique(cs)
+
+    fullr = dict()
+    clustr = dict()
+    for fr, r in enumerate(rs):
+        fullr[r] = fr
+        clustr[fr] = r
+
+    fullc = dict()
+    clustc = dict()
+    for fc, c in enumerate(cs):
+        fullc[c] = fc
+        clustr[fc] = c
+        
+    return fullr, fullc, clustr, clustc
+
+def getcluster(bdokmat, coords):
+    data = [bdokmat[coord] for coord in cluster_coords]]
+    data = dict(zip(coords, data))
+
+    rs, cs = zip(*coords)
+    rs = np.unique(rs)
+    cs = np.unique(cs)
+    shape = bdokmat.block_shape * np.array([len(rs), len(cs)])
+    
+    return BDOK(shape, block_shape, data)
+
+def setcluster(bdokmat, coords, clustermat):
+    fullr, fullc, clustr, clustc = index_full2cluster(coords)
+    for key in clustermat.data:
+        r, c = key
+        bdokmat[fullr[r], fullc[c]] = clustermat[key]
+    return bdokmat
+
+
+def block_eigh_(spmat, block_sort=True):
+
+    from scipy.linalg import eigh
+    from ..bdok import BDOK
+
+    cluster_coords = get_cluster_coords(spmat)
+    spmat = BDOK(spmat)
+
+    eigval_full = BDOK((spmat.shape[0],), block_shape=(spmat.block_shape[0],))
+    eigvec_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
+
+    for crd in cluster_coords:
+        cluster = getcluster(bdokmat, crd)
+        eigval, eigvec = eigh(cluster.todense())
+        eigval = BDOK(eigval, block_shape = (spmat.block_shape[0],))
+        eigvec = BDOK(eigvec, block_shape = spmat.block_shape)
+        setcluster(eigval_full, crd, eigval)
+        setcluster(eigvec_full, crd, eigvec)
+
+    return BCOO(eigval_full), BCOO(eigvec_full)
 

@@ -338,6 +338,21 @@ def test_get_connected_component():
     group_collect_convert_back = bcore.index_sub2full(sub_coords, sub_offsets) 
     assert(group_collect == group_collect_convert_back) 
 
+def test_get_connected_component2():
+    x = sparse.brandom((15, 8), (3, 2), 0.2, format='bcoo')
+    
+    group_collect =  bcore.get_connected_component(x, sym = False)
+    clusters = bcore.get_clusters_nosym(x.coords, x.outer_shape)
+    print group_collect
+    print clusters
+    
+    group_collect =  bcore.get_connected_component(x, sym = True)
+    clusters = bcore.get_clusters(x.coords, x.outer_shape)
+    print group_collect
+    print clusters
+
+
+    
 def test_block_eigh():
     
     def is_diagonal(A):
