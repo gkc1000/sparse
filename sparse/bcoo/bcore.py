@@ -2304,7 +2304,8 @@ def index_sub2full(sub_coords, sub_offsets, multi_group = True):
         x_arr, y_arr = np.asarray(zip(*sub_coords))
         return zip(x_arr + sub_offsets[0][x_arr], y_arr + sub_offsets[1][y_arr])
 
-def index_sub2full_svd(sub_coords, sub_offsets, multi_group = False, mindim = 'x'):
+
+def index_sub2full_svd(sub_coords, sub_offsets, min_dim = 'x'):
     """
     Inverse map from sub block indices to full block indices.
 
@@ -2314,8 +2315,6 @@ def index_sub2full_svd(sub_coords, sub_offsets, multi_group = False, mindim = 'x
         Sub block coords of each group.
     sub_offsets : list of (tuple of ndarray) or tuple of ndarray if multi_group = False
         Index offsets to restore the indices of full matrix. Each tuple is (x_offset, y_offset) of a group.
-    multi_group: bool
-        See above.
 
     Returns
     -------
@@ -2323,20 +2322,15 @@ def index_sub2full_svd(sub_coords, sub_offsets, multi_group = False, mindim = 'x
         The groups of x, y indices.
 
     """
-    if False:
-        group_collect = []
-        for i, coord in enumerate(sub_coords):
-            x_arr, y_arr = np.asarray(zip(*coord))
-            group_collect.append(zip(x_arr + sub_offsets[i][0][x_arr], y_arr + sub_offsets[i][1][y_arr]))
-        return group_collect
+    x_arr, y_arr = np.asarray(zip(*sub_coords))
+    if min_dim == 'x':
+        return zip(x_arr + sub_offsets[0][x_arr], y_arr + sub_offsets[0][y_arr])
+    elif min_dim == 'y':
+        return zip(x_arr + sub_offsets[1][x_arr], y_arr + sub_offsets[1][y_arr])
+    elif min_dim == 'sigma':
+        return zip(x_arr + sub_offsets[0][x_arr], y_arr + sub_offsets[1][y_arr])
     else:
-        x_arr, y_arr = np.asarray(zip(*sub_coords))
-        if mindim == 'x':
-            return zip(x_arr + sub_offsets[0][x_arr], y_arr + sub_offsets[0][y_arr])
-        elif mindim == 'y':
-            return zip(x_arr + sub_offsets[1][x_arr], y_arr + sub_offsets[1][y_arr])
-        else:
-            raise ValueError
+        raise ValueError
 
 def index_sub2full_singular_val(sub_coords, sub_offsets, multi_group = False, mindim = 'x'):
     """
@@ -2463,38 +2457,48 @@ def get_sub_blocks(spmat, sym = False):
 def block_svd(spmat):
     from scipy.linalg import svd
     from ..bdok import BDOK
+    
     submat_dense_collect, sub_coords, sub_offsets, sub_shapes, group_collect = get_sub_blocks(spmat, sym = False)
-    sigma_collect = []
-    #K = min(spmat.shape)
+    #sigma_collect = []
+    
     u_shape = (spmat.shape[0], spmat.shape[0])
     vt_shape = (spmat.shape[1], spmat.shape[1])
-    
-    #K_block = min(spmat.block_shape)
+    sigma_shape = (spmat.shape[0], spmat.shape[1]) 
 
     u_block_shape = (spmat.block_shape[0], spmat.block_shape[0])
     vt_block_shape = (spmat.block_shape[1], spmat.block_shape[1])
+    sigma_block_shape = (spmat.block_shape[0], spmat.block_shape[1]) 
 
     u_bdok_full = BDOK(u_shape, block_shape = u_block_shape)
     vt_bdok_full = BDOK(vt_shape, block_shape = vt_block_shape)
-    #sigma_collect_reordered = np.zeros()
+    sigma_bdok_full = BDOK(sigma_shape, block_shape = sigma_block_shape)
 
     for i, submat_dense in enumerate(submat_dense_collect): 
         u, sigma, vt = svd(submat_dense, full_matrices = True)
-        sigma_collect.append(sigma)
+        #sigma_collect.append(sigma)
+        sigma_mat = np.zeros((u.shape[1], vt.shape[0]), dtype = sigma.dtype)
+        np.fill_diagonal(sigma_mat, sigma)
         
         u_bdok_sub = BDOK(u, block_shape = u_block_shape)
         vt_bdok_sub = BDOK(vt, block_shape = vt_block_shape)
-        
+        sigma_bdok_sub = BDOK(sigma_mat, block_shape = sigma_block_shape)
+
         sub_coord_i = u_bdok_sub.data.keys()
-        group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'x')
+        group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], min_dim = 'x')
         for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
             u_bdok_full[idx_full] = u_bdok_sub[idx_sub] 
+        
         sub_coord_i = vt_bdok_sub.data.keys()
-        group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], multi_group = False, mindim = 'y')
+        group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], min_dim = 'y')
         for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
             vt_bdok_full[idx_full] = vt_bdok_sub[idx_sub] 
+        
+        sub_coord_i = sigma_bdok_sub.data.keys()
+        group_collect_i = index_sub2full_svd(sub_coord_i, sub_offsets[i], min_dim = 'sigma')
+        for idx_full, idx_sub in zip(group_collect_i, sub_coord_i):
+            sigma_bdok_full[idx_full] = sigma_bdok_sub[idx_sub] 
     
-    return BCOO(u_bdok_full), sigma_collect, BCOO(vt_bdok_full) #, sigma_collect_reordered
+    return BCOO(u_bdok_full), BCOO(sigma_bdok_full), BCOO(vt_bdok_full) #, sigma_collect_reordered
 
 def block_eigh(spmat, block_sort=True):
 
