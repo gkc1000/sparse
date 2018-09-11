@@ -407,6 +407,28 @@ def test_eigh2():
     x = sparse.brandom((6, 6), (2, 2), 0.2, format='bcoo')
     y = x + x.T
     print y.todense()
+
+def test_dot():
+    shape_x = (8,6)
+    block_shape_x = (2,2)
+    shape_y = (6,4)
+    block_shape_y = (2,4)
+    
+    x = sparse.brandom(shape_x, block_shape_x, 0.6, format='bcoo')
+    x_d = x.todense()
+
+    y = sparse.brandom(shape_y, block_shape_y, 0.6, format='bcoo')
+    y_d = y.todense()
+
+    print x_d
+    print y_d
+
+    #c= bcalc.einsum(descr, x, y, DEBUG=False)
+    c= x.dot(y)
+    print c
+    print c.todense()
+    elemC = x_d.dot(y_d)
+    assert_eq(elemC, c)
     
 
 if __name__ == '__main__':

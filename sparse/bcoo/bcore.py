@@ -1164,7 +1164,8 @@ class BCOO(BSparseArray, NDArrayOperatorsMixin):
         array([[ 2,  3],
                [ 6, 11]], dtype=int64)
         """
-        return NotImplementedError
+        from .bcommon import dot
+        return dot(self, other)
 
     def __matmul__(self, other):
         try:
