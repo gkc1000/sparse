@@ -102,9 +102,8 @@ class BDOK(BSparseArray):
 
         if block_shape is None:
             raise RuntimeError('block_shape cannot be None unless initializing from BCOO')
-        
-        if isinstance(shape, np.ndarray):
-            
+
+        if isinstance(shape, np.ndarray):            
             ar = BDOK.from_numpy(shape, block_shape)
             self._make_shallow_copy_of(ar)
             return

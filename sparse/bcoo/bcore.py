@@ -2677,14 +2677,14 @@ def block_eigh_(spmat, block_sort=True):
     eigval = BCOO(eigval); eigvec = BCOO(eigvec)
     
     if block_sort:
-        rs = eigval.coords[0, :]
-        data = [np.linalg.norm(d) for d in eigval.data]
-        sorted_order = np.argsort(data)
-        index_insorted = [sorted_order.index(i) for i in range(len(data))]
-        new_rs = rs[index_insorted]
+        # rs = eigval.coords[0, :]
+        # data = [np.linalg.norm(d) for d in eigval.data]        
+        # sorted_order = list(np.argsort(data))
+        # index_insorted = [sorted_order.index(i) for i in range(len(data))]
+        # new_rs = dict(zip(rs, rs[index_insorted]))
+        # eigval.coords[0, :] = new_rs
+        # for c in range(len(eigvec.coords.shape[1])):
+        #     eigvec.coords[1, c] = new_rs
 
-        eigval.coords[0, :] = new_rs
-        eigvec.coords[1, :] = new_rs
-        
     return eigval, eigvec
 
