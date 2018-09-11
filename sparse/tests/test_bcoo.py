@@ -358,6 +358,7 @@ def test_block_eigh():
     def is_diagonal(A):
         return np.allclose(A - np.diag(np.diagonal(A)), 0.0)
     #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    #np.random.seed(0)
     x = sparse.brandom((16, 16), (4, 4), 0.2, format='bcoo')
     x += x.T
 
@@ -368,9 +369,9 @@ def test_block_eigh():
     
     y = x.todense()
     #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
-    eigval_sp, eigvec_sp = bcore.block_eigh(x)
-    print eigval_sp
-    print eigvec_sp
+    eigval_sp, eigvec_sp = bcore.block_eigh(x, block_sort = True)
+    #print eigval_sp
+    #print eigvec_sp
     eigval_sp = eigval_sp.todense()
     eigvec_sp = eigvec_sp.todense()
     
@@ -384,7 +385,7 @@ def test_block_eigh():
 def test_block_svd():
     
     np.set_printoptions(3, linewidth = 1000, suppress = True)
-    x = sparse.brandom((15, 8), (3, 2), 0.3, format='bcoo')
+    x = sparse.brandom((16, 8), (2, 2), 0.3, format='bcoo')
     '''
     a = np.zeros((8, 4))
     a[0:2, 2:4] = np.arange(1, 5).reshape((2, 2))
@@ -396,15 +397,23 @@ def test_block_svd():
     print y
     u, sigma, vt = bcore.block_svd(x)
     print sigma
-    #print sigma_reordered
-    print u.todense()
-    print vt.todense()
-    u_np, sigma_np, vt_np = np.linalg.svd(y, full_matrices = False)
+    u_d = u.todense()
+    vt_d = vt.todense()
+    
+    u_np, sigma_np, vt_np = np.linalg.svd(y, full_matrices = True)
+
+    print "u sp"
+    print u_d
+    print "vt sp"
+    print vt_d
     print sigma_np
-    #print "np"
-    #print sigma_np[[0,2,1,3]]
-    #print u_np[:, [0,2,1,3]]
-    #print vt_np[[0,2,1,3], :]
+    print np.sqrt(y.T.dot(y).dot(vt_np.T)/ (vt_np.T))
+    print "u np"
+    print u_np
+    print "vt np"
+    print vt_np
+    print "uT A v"
+    print u_d.T.dot(y.dot(vt_d.T)) 
 
 
 def test_eigh2():
@@ -415,7 +424,8 @@ def test_eigh2():
 
 if __name__ == '__main__':
     print("\n main test \n")
-    test_block_svd()
+    #test_block_svd()
+    test_block_eigh()
     exit()
     test_brandom()
     test_from_numpy()
