@@ -397,6 +397,35 @@ def test_block_eigh():
     eigval_np = np.linalg.eigh(x.todense())[0]
     assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
 
+def test_block_eigh_():
+    
+    def is_diagonal(A):
+        return np.allclose(A - np.diag(np.diagonal(A)), 0.0)
+    #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    #np.random.seed(0)
+    x = sparse.brandom((16, 16), (4, 4), 0.2, format='bcoo')
+    x += x.T
+
+    # ZHC TODO
+    # support symmetric case with non-square block_shape
+    #x = x.to_coo()
+    #x = BCOO.from_coo(x, block_shape = (4,2)) 
+    
+    y = x.todense()
+    #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
+    eigval_sp, eigvec_sp = bcore.block_eigh_(x, block_sort = True)
+    #print eigval_sp
+    #print eigvec_sp
+    eigval_sp = eigval_sp.todense()
+    eigvec_sp = eigvec_sp.todense()
+    
+    diagonalized_mat_sp = eigvec_sp.T.dot(x.todense().dot(eigvec_sp))
+    #print bcore.block_eigh(x)[1]
+
+    assert(is_diagonal(diagonalized_mat_sp))
+    eigval_np = np.linalg.eigh(x.todense())[0]
+    assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
+
 def test_block_svd():
     
     np.set_printoptions(3, linewidth = 1000, suppress = True)
@@ -439,8 +468,8 @@ def test_eigh2():
 
 if __name__ == '__main__':
     print("\n main test \n")
+    test_block_eigh_()
     #test_block_svd()
-    test_block_eigh()
     exit()
     test_brandom()
     test_from_numpy()
