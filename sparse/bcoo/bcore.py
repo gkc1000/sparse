@@ -2533,7 +2533,7 @@ def block_eigh(spmat, block_sort=True):
 
     if block_sort:
         eigval_norm = np.array([np.linalg.norm(d) for d in eigval.data])
-        ix = np.argsort(eigval_norm)
+        ix = np.argsort(np.argsort(eigval_norm))
         eigval_coords_sorted = eigval.coords[:, ix]
         #print eigval_coords_sorted
         sort_map = dict(zip(eigval.coords[0], eigval_coords_sorted[0]))
@@ -2677,14 +2677,18 @@ def block_eigh_(spmat, block_sort=True):
     eigval = BCOO(eigval); eigvec = BCOO(eigvec)
     
     if block_sort:
-        # rs = eigval.coords[0, :]
-        # data = [np.linalg.norm(d) for d in eigval.data]        
-        # sorted_order = list(np.argsort(data))
-        # index_insorted = [sorted_order.index(i) for i in range(len(data))]
-        # new_rs = dict(zip(rs, rs[index_insorted]))
-        # eigval.coords[0, :] = new_rs
-        # for c in range(len(eigvec.coords.shape[1])):
-        #     eigvec.coords[1, c] = new_rs
+        eigval_norm = [np.linalg.norm(d) for d in eigval.data]
+        ix = np.argsort(np.argsort(eigval_norm))
+        cols_insorted = eigval.coords[:, ix]
+        
+        sort_map = dict(zip(eigval.coords[0], cols_insorted[0]))
+        eigvec_cols_insorted = [sort_map[c] for c in eigvec.coords[1]]
+        eigvec_coords_insorted = np.asarray([eigvec.coords[0], eigvec_cols_insorted])
+
+        eigval = BCOO(cols_insorted, shape = eigval.shape,
+                      block_shape = eigval.block_shape, data = eigval.data)
+        eigvec = BCOO(eigvec_coords_insorted, shape = eigvec.shape,
+                      block_shape = eigvec.block_shape, data = eigvec.data)
 
     return eigval, eigvec
 
