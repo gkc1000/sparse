@@ -2547,7 +2547,7 @@ def block_eigh(spmat, block_sort=True):
         
     return eigval, eigvec 
 
-def get_clusters(coords, outer_shape):
+def get_cluster_coords(coords, outer_shape):
     adjacency = defaultdict(list)
     rs, cs = coords
     for r, c in zip(rs, cs):
@@ -2570,7 +2570,7 @@ def get_clusters(coords, outer_shape):
                 
     return clusters
 
-def get_clusters_nosym(coords, outer_shape):
+def get_cluster_coords_nosym(coords, outer_shape):
     row_adjacency = defaultdict(list)
     col_adjacency = defaultdict(list)
     rs, cs = coords
@@ -2603,62 +2603,88 @@ def get_clusters_nosym(coords, outer_shape):
     return clusters
 
 #### these functions to be tested ####
-def index_full2cluster(coords):
-    rs, cs = zip(*coords)
-    rs = np.unique(rs)
-    cs = np.unique(cs)
-
-    fullr = dict()
-    clustr = dict()
-    for r, fr in enumerate(rs):
-        fullr[r] = fr
-        clustr[fr] = r
-
-    fullc = dict()
-    clustc = dict()
-    for c, fc in enumerate(cs):
-        fullc[c] = fc
-        clustr[fc] = c
-        
-    return fullr, fullc, clustr, clustc
+def index_full2cluster(ixs):
+    ixs = np.unique(ixs)
+    fullix = dict()
+    clustix = dict()
+    for i, fi in enumerate(ixs):
+        fullix[i] = fi
+        clustix[fi] = i
+    return fullix, clustix
 
 def getcluster(bdokmat, coords):
-    data = [bdokmat[coord] for coord in coords]
-    data = dict(zip(coords, data))
+    from ..bdok import BDOK
 
-    rs, cs = zip(*coords)
-    rs = np.unique(rs)
-    cs = np.unique(cs)
-    shape = np.multiply(bdokmat.block_shape, [len(rs), len(cs)])
+    data = [bdokmat[coord] for coord in coords]
+    print "coords", coords[0]
+    if len(coords[0]) == 1:
+        rs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        cl_coords = [(clustr[r],) for r in rs]
+        data = dict(zip(cl_coords, data))
+        rs = np.unique(rs)
+        shape = np.multiply(bdokmat.block_shape, [len(rs)])
+    elif len(coords[0]) == 2:
+        rs, cs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        fullc, clustc = index_full2cluster(cs)
+        cl_coords = [(clustr[r], clustc[c]) for (r, c) in coords]
+        data = dict(zip(cl_coords, data))
+        rs = np.unique(rs)
+        cs = np.unique(cs)
+        shape = np.multiply(bdokmat.block_shape, [len(rs), len(cs)])
+    else:
+        raise NotImplementedError
     
-    return BDOK(shape, block_shape, data)
+    return BDOK(shape = tuple(shape), block_shape = bdokmat.block_shape,
+                data = data)
 
 def setcluster(bdokmat, coords, clustermat):
-    fullr, fullc, clustr, clustc = index_full2cluster(coords)
-    for key in clustermat.data:
-        r, c = key
-        bdokmat[fullr[r], fullc[c]] = clustermat[key]
+    if len(coords[0]) == 1:
+        rs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        for key in clustermat.data:
+            bdokmat[fullr[key[0]]] = clustermat[key]
+    elif len(coords[0]) == 2:
+        rs, cs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        fullc, clustc = index_full2cluster(cs)
+        for key in clustermat.data:
+            r, c = key
+            bdokmat[fullr[r], fullc[c]] = clustermat[key]
     return bdokmat
 
 
 def block_eigh_(spmat, block_sort=True):
-
     from scipy.linalg import eigh
     from ..bdok import BDOK
 
-    cluster_coords = get_cluster_coords(spmat)
+    cluster_coords = get_cluster_coords(spmat.coords, spmat.outer_shape)
     spmat = BDOK(spmat)
+    eigval = BDOK((spmat.shape[0],), block_shape=(spmat.block_shape[0],))
+    eigvec = BDOK(spmat.shape, block_shape = spmat.block_shape)
 
-    eigval_full = BDOK((spmat.shape[0],), block_shape=(spmat.block_shape[0],))
-    eigvec_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
+    for crds in cluster_coords:
+        cluster = getcluster(spmat, crds)        
+        cl_eigval, cl_eigvec = eigh(cluster.todense())
+        cl_eigval = BDOK(cl_eigval, block_shape = (spmat.block_shape[0],))
+        cl_eigvec = BDOK(cl_eigvec, block_shape = spmat.block_shape)
 
-    for crd in cluster_coords:
-        cluster = getcluster(bdokmat, crd)
-        eigval, eigvec = eigh(cluster.todense())
-        eigval = BDOK(eigval, block_shape = (spmat.block_shape[0],))
-        eigvec = BDOK(eigvec, block_shape = spmat.block_shape)
-        setcluster(eigval_full, crd, eigval)
-        setcluster(eigvec_full, crd, eigvec)
+        diag_crds = [(r,) for (r,c) in crds]
+        setcluster(eigval, diag_crds, cl_eigval)
+        setcluster(eigvec, crds, cl_eigvec)
 
-    return BCOO(eigval_full), BCOO(eigvec_full)
+    eigval = BCOO(eigval); eigvec = BCOO(eigvec)
+    
+    if block_sort:
+        rs = eigval.coords[0, :]
+        data = [np.linalg.norm(d) for d in eigval.data]
+        sorted_order = np.argsort(data)
+        index_insorted = [sorted_order.index(i) for i in range(len(data))]
+        new_rs = rs[index_insorted]
+
+        eigval.coords[0, :] = new_rs
+        eigvec.coords[1, :] = new_rs
+        
+    return eigval, eigvec
 
