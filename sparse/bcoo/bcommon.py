@@ -156,41 +156,73 @@ def tensordot(a, b, axes=2):
     return res.reshape(olda + oldb)
 
 
-def dot(a, b):
+#def dot(a, b):
+#    """
+#    Perform the equivalent of :obj:`numpy.dot` on two arrays.
+#
+#    Parameters
+#    ----------
+#    a, b : Union[COO, np.ndarray, scipy.sparse.spmatrix]
+#        The arrays to perform the :code:`dot` operation on.
+#
+#    Returns
+#    -------
+#    Union[COO, numpy.ndarray]
+#        The result of the operation.
+#
+#    See Also
+#    --------
+#    numpy.dot : NumPy equivalent function.
+#    COO.dot : Equivalent function for COO objects.
+#    """
+#    if not hasattr(a, 'ndim') or not hasattr(b, 'ndim'):
+#        raise NotImplementedError(
+#            "Cannot perform dot product on types %s, %s" %
+#            (type(a), type(b)))
+#
+#    if a.ndim == 1 and b.ndim == 1:
+#        return (a * b).sum()
+#
+#    a_axis = -1
+#    b_axis = -2
+#
+#    if b.ndim == 1:
+#        b_axis = -1
+#
+#    return tensordot(a, b, axes=(a_axis, b_axis))
+
+def dot(A, B):
     """
     Perform the equivalent of :obj:`numpy.dot` on two arrays.
 
     Parameters
     ----------
-    a, b : Union[COO, np.ndarray, scipy.sparse.spmatrix]
+    a, b : BCOO
         The arrays to perform the :code:`dot` operation on.
 
     Returns
     -------
-    Union[COO, numpy.ndarray]
+    BCOO
         The result of the operation.
 
     See Also
     --------
-    numpy.dot : NumPy equivalent function.
-    COO.dot : Equivalent function for COO objects.
     """
-    if not hasattr(a, 'ndim') or not hasattr(b, 'ndim'):
-        raise NotImplementedError(
-            "Cannot perform dot product on types %s, %s" %
-            (type(a), type(b)))
+    from .bcore import BCOO
+    
+    inner_shape = A.outer_shape[-1]
+    block_inner_shape = A.block_shape[-1]
 
-    if a.ndim == 1 and b.ndim == 1:
-        return (a * b).sum()
 
-    a_axis = -1
-    b_axis = -2
+    At = A.block_reshape((-1,inner_shape), block_shape = (-1,block_inner_shape))
+    Bt = B.block_reshape((inner_shape,-1), block_shape = (block_inner_shape,-1))
 
-    if b.ndim == 1:
-        b_axis = -1
-
-    return tensordot(a, b, axes=(a_axis, b_axis))
-
+    At = At.tobsr()
+    Bt = Bt.tobsr()
+    AdotB = At.dot(Bt)
+    AdotB_bcoo = BCOO.from_bsr(AdotB)
+    
+    return AdotB_bcoo 
 
 def _dot(a, b):
     from .core import COO
