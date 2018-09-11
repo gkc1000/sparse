@@ -2504,11 +2504,9 @@ def block_eigh(spmat, block_sort=True):
     eigval_bdok_full = BDOK((spmat.shape[0],), block_shape = (spmat.block_shape[0],))
     eigvec_bdok_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
 
-    eigval_collect = []
     for i, submat_dense in enumerate(submat_dense_collect):
         eigval, eigvec = eigh(submat_dense)
 
-        eigval_collect.append(eigval)
         # this will correctly only assign diagonal blocks
         eigval_bdok_sub = BDOK(eigval,
                                block_shape = (spmat.block_shape[0],))
