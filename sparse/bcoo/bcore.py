@@ -2604,26 +2604,26 @@ def index_full2cluster(coords):
 
     fullr = dict()
     clustr = dict()
-    for fr, r in enumerate(rs):
+    for r, fr in enumerate(rs):
         fullr[r] = fr
         clustr[fr] = r
 
     fullc = dict()
     clustc = dict()
-    for fc, c in enumerate(cs):
+    for c, fc in enumerate(cs):
         fullc[c] = fc
         clustr[fc] = c
         
     return fullr, fullc, clustr, clustc
 
 def getcluster(bdokmat, coords):
-    data = [bdokmat[coord] for coord in cluster_coords]]
+    data = [bdokmat[coord] for coord in coords]]
     data = dict(zip(coords, data))
 
     rs, cs = zip(*coords)
     rs = np.unique(rs)
     cs = np.unique(cs)
-    shape = bdokmat.block_shape * np.array([len(rs), len(cs)])
+    shape = np.multiply(bdokmat.block_shape, [len(rs), len(cs)])
     
     return BDOK(shape, block_shape, data)
 
