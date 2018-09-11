@@ -366,7 +366,19 @@ def test_block_eigh2():
     
     y = x.todense()
     #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
-    eigval_sp, eigvec_sp = bcore.block_eigh(x)
+    eigval_sp, eigvec_sp = bcore.block_eigh_(x)
+
+    eigval_sp = eigval_sp.todense()
+    eigvec_sp = eigvec_sp.todense()
+    
+    diagonalized_mat_sp = eigvec_sp.T.dot(x.todense().dot(eigvec_sp))
+    #print bcore.block_eigh(x)[1]
+
+    assert(is_diagonal(diagonalized_mat_sp))
+    eigval_np = np.linalg.eigh(x.todense())[0]
+    assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
+
+    print "FINISHED"
     
 def test_block_eigh():
     
@@ -468,7 +480,7 @@ def test_eigh2():
 
 if __name__ == '__main__':
     print("\n main test \n")
-    test_block_eigh_()
+    test_block_eigh2()
     #test_block_svd()
     exit()
     test_brandom()
