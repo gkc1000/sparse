@@ -420,13 +420,24 @@ def test_dot():
     y = sparse.brandom(shape_y, block_shape_y, 0.6, format='bcoo')
     y_d = y.todense()
 
-    print x_d
-    print y_d
 
-    #c= bcalc.einsum(descr, x, y, DEBUG=False)
     c= x.dot(y)
-    print c
-    print c.todense()
+    elemC = x_d.dot(y_d)
+    assert_eq(elemC, c)
+    
+    shape_x = (9,4,18)
+    block_shape_x = (9,2,1)
+    shape_y = (18,8,10,12)
+    block_shape_y = (1,8,1,3)
+    
+    x = sparse.brandom(shape_x, block_shape_x, 0.6, format='bcoo')
+    x_d = x.todense()
+
+    y = sparse.brandom(shape_y, block_shape_y, 0.6, format='bcoo')
+    y_d = y.todense()
+
+
+    c= x.dot(y)
     elemC = x_d.dot(y_d)
     assert_eq(elemC, c)
     
