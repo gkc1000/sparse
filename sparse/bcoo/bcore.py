@@ -2617,7 +2617,7 @@ def index_full2cluster(coords):
     return fullr, fullc, clustr, clustc
 
 def getcluster(bdokmat, coords):
-    data = [bdokmat[coord] for coord in coords]]
+    data = [bdokmat[coord] for coord in coords]
     data = dict(zip(coords, data))
 
     rs, cs = zip(*coords)
