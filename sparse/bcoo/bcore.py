@@ -2499,9 +2499,11 @@ def block_eigh(spmat, block_sort=True):
     eigval_bdok_full = BDOK((spmat.shape[0],), block_shape = (spmat.block_shape[0],))
     eigvec_bdok_full = BDOK(spmat.shape, block_shape = spmat.block_shape)
 
+    eigval_collect = []
     for i, submat_dense in enumerate(submat_dense_collect):
         eigval, eigvec = eigh(submat_dense)
 
+        eigval_collect.append(eigval)
         # this will correctly only assign diagonal blocks
         eigval_bdok_sub = BDOK(eigval,
                                block_shape = (spmat.block_shape[0],))
@@ -2518,15 +2520,21 @@ def block_eigh(spmat, block_sort=True):
         for idx_full, idx_sub in zip(eigvec_group_collect_i, eigvec_sub_coord_i):
             eigvec_bdok_full[idx_full] = eigvec_bdok_sub[idx_sub] 
 
+
     eigval = BCOO(eigval_bdok_full)
     eigvec = BCOO(eigvec_bdok_full)
 
     if block_sort:
         eigval_norm = np.array([np.linalg.norm(d) for d in eigval.data])
         ix = np.argsort(eigval_norm)
-        eigval.coords[0] = np.array([eigval.coords[0][i] for i in ix])
-        eigvec.coords[0] = np.array([eigvec.coords[0][i] for i in ix])
-        eigvec.coords[1] = np.array([eigvec.coords[1][i] for i in ix])
+        eigval_coords_sorted = eigval.coords[:, ix]
+        
+        sort_map = dict(zip(eigval.coords[0], ix))
+        eigvec_coords_argsort = map(lambda _: sort_map[_], eigvec.coords[1])
+        eigvec_coords_sorted = np.asarray([eigvec.coords[0], eigvec_coords_argsort])
+        
+        eigval = BCOO(eigval_coords_sorted, shape = eigval.shape, block_shape = eigval.block_shape, data = eigval.data)
+        eigvec = BCOO(eigvec_coords_sorted, shape = eigvec.shape, block_shape = eigvec.block_shape, data = eigvec.data)
         
     return eigval, eigvec 
 
