@@ -443,7 +443,8 @@ def test_block_svd():
     print vt_np
     print "uT A v"
     print u_d.T.dot(y.dot(vt_d.T)) 
-
+    print sigma.todense()
+    print sigma.
 
 def test_eigh2():
     x = sparse.brandom((6, 6), (2, 2), 0.2, format='bcoo')
@@ -453,8 +454,8 @@ def test_eigh2():
 
 if __name__ == '__main__':
     print("\n main test \n")
-    test_block_eigh_()
-    #test_block_svd()
+    #test_block_eigh_()
+    test_block_svd()
     exit()
     test_brandom()
     test_from_numpy()
