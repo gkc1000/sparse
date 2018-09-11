@@ -2640,7 +2640,7 @@ def block_eigh_(spmat, block_sort=True):
     from scipy.linalg import eigh
     from ..bdok import BDOK
 
-    cluster_coords = get_cluster_coords(spmat)
+    cluster_coords = get_cluster_coords(spmat.coords, spmat.outer_shape)
     spmat = BDOK(spmat)
 
     eigval_full = BDOK((spmat.shape[0],), block_shape=(spmat.block_shape[0],))
