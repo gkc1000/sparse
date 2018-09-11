@@ -2548,7 +2548,7 @@ def get_clusters(coords, outer_shape):
                 r = stack.pop()
                 if r not in visited:
                     cluster += [(r, c) for c in adjacency[r]]
-                    stack += adjacency[r]
+                    stack += adjacency[r][:]
                     visited.add(r)
             if cluster: clusters.append(cluster)
                 
@@ -2567,7 +2567,7 @@ def get_clusters_nosym(coords, outer_shape):
     
     for r0 in range(outer_shape[0]):
         if r0 not in visited_rs:
-            stack = row_adjacency[r0]; cluster = []
+            stack = row_adjacency[r0][:]; cluster = []
 
             while stack:
                 r, c = stack.pop()
@@ -2576,10 +2576,10 @@ def get_clusters_nosym(coords, outer_shape):
                     visited.add((r, c))
                     
                     if r not in visited_rs:
-                        stack += row_adjacency[r]
+                        stack += row_adjacency[r][:]
                         visited_rs.add(r)                        
                     if c not in visited_cs:
-                        stack += col_adjacency[c]
+                        stack += col_adjacency[c][:]
                         visited_cs.add(c)
 
             if cluster: clusters.append(cluster)
