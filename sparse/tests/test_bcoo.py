@@ -351,7 +351,22 @@ def test_get_connected_component2():
     print group_collect
     print clusters
 
+def test_block_eigh2():
+    def is_diagonal(A):
+        return np.allclose(A - np.diag(np.diagonal(A)), 0.0)
+    #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    #np.random.seed(0)
+    x = sparse.brandom((16, 16), (4, 4), 0.2, format='bcoo')
+    x += x.T
 
+    # ZHC TODO
+    # support symmetric case with non-square block_shape
+    #x = x.to_coo()
+    #x = BCOO.from_coo(x, block_shape = (4,2)) 
+    
+    y = x.todense()
+    #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
+    eigval_sp, eigvec_sp = bcore.block_eigh(x)
     
 def test_block_eigh():
     
