@@ -2535,8 +2535,10 @@ def block_eigh(spmat, block_sort=True):
         eigval_norm = np.array([np.linalg.norm(d) for d in eigval.data])
         ix = np.argsort(eigval_norm)
         eigval_coords_sorted = eigval.coords[:, ix]
-        
-        sort_map = dict(zip(eigval.coords[0], ix))
+        #print eigval_coords_sorted
+        sort_map = dict(zip(eigval.coords[0], eigval_coords_sorted[0]))
+        #print sort_map
+        #exit()
         eigvec_coords_argsort = map(lambda _: sort_map[_], eigvec.coords[1])
         eigvec_coords_sorted = np.asarray([eigvec.coords[0], eigvec_coords_argsort])
         

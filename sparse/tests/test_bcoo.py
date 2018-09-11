@@ -396,11 +396,11 @@ def test_block_eigh():
     
     y = x.todense()
     #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
-    eigval_sp, eigvec_sp = bcore.block_eigh(x, block_sort = True)
+    eigval_sp_bcoo, eigvec_sp_bcoo = bcore.block_eigh(x, block_sort = True)
     #print eigval_sp
     #print eigvec_sp
-    eigval_sp = eigval_sp.todense()
-    eigvec_sp = eigvec_sp.todense()
+    eigval_sp = eigval_sp_bcoo.todense()
+    eigvec_sp = eigvec_sp_bcoo.todense()
     
     diagonalized_mat_sp = eigvec_sp.T.dot(x.todense().dot(eigvec_sp))
     #print bcore.block_eigh(x)[1]
@@ -408,6 +408,16 @@ def test_block_eigh():
     assert(is_diagonal(diagonalized_mat_sp))
     eigval_np = np.linalg.eigh(x.todense())[0]
     assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
+   
+    eigval_norm = np.array([np.linalg.norm(d) for d in eigval_sp_bcoo.data])
+    print eigval_norm
+    
+    eig = np.diag(diagonalized_mat_sp)
+    print eig
+    for i in range(0, len(eig), 4):
+        print np.linalg.norm(eig[i:(i+4)])
+    #print eig[0:4].sum()
+    #print eig[4:8].sum()
 
 def test_block_eigh_():
     
@@ -440,7 +450,8 @@ def test_block_eigh_():
 
 def test_block_svd():
     
-    np.set_printoptions(3, linewidth = 1000, suppress = True)
+    #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    np.set_printoptions(2, linewidth = 1000, suppress = False)
     x = sparse.brandom((16, 8), (2, 2), 0.3, format='bcoo')
     '''
     a = np.zeros((8, 4))
@@ -471,7 +482,7 @@ def test_block_svd():
     print "uT A v"
     print u_d.T.dot(y.dot(vt_d.T)) 
     print sigma.todense()
-    print sigma.
+    print sigma.coords
 
 def test_eigh2():
     x = sparse.brandom((6, 6), (2, 2), 0.2, format='bcoo')
@@ -481,7 +492,8 @@ def test_eigh2():
 
 if __name__ == '__main__':
     print("\n main test \n")
-    test_block_svd()
+    test_block_eigh()
+    #test_block_svd()
     exit()
     test_brandom()
     test_from_numpy()
