@@ -927,6 +927,12 @@ class COO(SparseArray, NDArrayOperatorsMixin):
         """
         return np.multiply.reduce(self, out=out, axis=axis, keepdims=keepdims, dtype=dtype)
 
+    def conj(self):
+        return self.conjugate()
+
+    def conjugate(self):
+        return COO(self.coords, self.data.conjugate(), shape=self.shape)
+
     def transpose(self, axes=None):
         """
         Returns a new array which has the order of the axes switched.
