@@ -1644,3 +1644,181 @@ def _grouped_reduce(x, groups, method, **kwargs):
     result = method.reduceat(x, inv_idx, **kwargs)
     counts = np.diff(np.concatenate((inv_idx, [len(x)])))
     return result, inv_idx, counts
+
+def get_cluster_coords(coords, outer_shape):
+    adjacency = defaultdict(list)
+    rs, cs = coords
+    for r, c in zip(rs, cs):
+        adjacency[r].append(c)
+
+    visited = set()
+    clusters = []
+    
+    for r0 in range(outer_shape[0]):
+        if r0 not in visited:
+            stack = adjacency[r0][:]
+            cluster = []
+            while stack:
+                r = stack.pop()
+                if r not in visited:
+                    cluster += [(r, c) for c in adjacency[r]]
+                    stack += adjacency[r][:]
+                    visited.add(r)
+            if cluster: clusters.append(cluster)
+                
+    return clusters
+
+def get_cluster_coords_nosym(coords, outer_shape):
+    row_adjacency = defaultdict(list)
+    col_adjacency = defaultdict(list)
+    rs, cs = coords
+    for r, c in zip(rs, cs):
+        row_adjacency[r].append((r, c))
+        col_adjacency[c].append((r, c))
+
+    visited = set();  visited_rs = set(); visited_cs = set()
+    clusters = []
+    
+    for r0 in range(outer_shape[0]):
+        if r0 not in visited_rs:
+            stack = row_adjacency[r0][:]; cluster = []
+
+            while stack:
+                r, c = stack.pop()
+                if (r, c) not in visited:
+                    cluster.append((r, c))
+                    visited.add((r, c))
+                    
+                    if r not in visited_rs:
+                        stack += row_adjacency[r][:]
+                        visited_rs.add(r)                        
+                    if c not in visited_cs:
+                        stack += col_adjacency[c][:]
+                        visited_cs.add(c)
+
+            if cluster: clusters.append(cluster)
+
+    return clusters
+
+def index_full2cluster(ixs):
+    ixs = np.unique(ixs)
+    fullix = dict()
+    clustix = dict()
+    for i, fi in enumerate(ixs):
+        fullix[i] = fi
+        clustix[fi] = i
+    return fullix, clustix
+
+def getcluster(dokmat, coords):
+    from ..dok import DOK
+
+    data = [dokmat[coord] for coord in coords]
+    if len(coords[0]) == 1:
+        rs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        cl_coords = [(clustr[r],) for r in rs]
+        data = dict(zip(cl_coords, data))
+        rs = np.unique(rs)
+        shape = (len(rs))
+        #shape = np.multiply(dokmat.block_shape, [len(rs)])
+    elif len(coords[0]) == 2:
+        rs, cs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        fullc, clustc = index_full2cluster(cs)
+        cl_coords = [(clustr[r], clustc[c]) for (r, c) in coords]
+        data = dict(zip(cl_coords, data))
+        rs = np.unique(rs)
+        cs = np.unique(cs)
+        shape = (len(rs), len(cs))
+        #shape = np.multiply(bdokmat.block_shape, [len(rs), len(cs)])
+    else:
+        raise NotImplementedError
+    
+    return DOK(shape = tuple(shape), data = data)
+
+def setcluster(dokmat, coords, clustermat):
+    
+    if len(coords[0]) == 1:
+        rs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        for key in clustermat.data:
+            dokmat[fullr[key[0]]] = clustermat[key]
+    elif len(coords[0]) == 2:
+        rs, cs = zip(*coords)
+        fullr, clustr = index_full2cluster(rs)
+        fullc, clustc = index_full2cluster(cs)
+        for key in clustermat.data:
+            r, c = key
+            dokmat[fullr[r], fullc[c]] = clustermat[key]
+    return dokmat
+
+def block_eigh(spmat, sort=True):
+    from scipy.linalg import eigh
+    from ..dok import DOK
+
+    cluster_coords = get_cluster_coords(spmat.coords, spmat.shape)
+    spmat = DOK(spmat)
+    eigval = DOK((spmat.shape[0],))
+    eigvec = DOK(spmat.shape)
+
+    for crds in cluster_coords:
+        cluster = getcluster(spmat, crds)        
+        cl_eigval, cl_eigvec = eigh(cluster.todense())
+        cl_eigval = DOK(cl_eigval)
+        cl_eigvec = DOK(cl_eigvec)
+
+        diag_crds = [(r,) for (r,c) in crds]
+        setcluster(eigval, diag_crds, cl_eigval)
+        setcluster(eigvec, crds, cl_eigvec)
+
+    eigval = COO(eigval); eigvec = COO(eigvec)
+    
+    if sort:
+        #eigval_norm = [np.linalg.norm(d) for d in eigval.data]
+        eigval_norm = eigval.data # use norm?
+        ix = np.argsort(np.argsort(eigval_norm))
+        cols_insorted = eigval.coords[:, ix]
+        
+        sort_map = dict(zip(eigval.coords[0], cols_insorted[0]))
+        eigvec_cols_insorted = [sort_map[c] for c in eigvec.coords[1]]
+        eigvec_coords_insorted = np.asarray([eigvec.coords[0], eigvec_cols_insorted])
+
+        eigval = COO(cols_insorted, shape = eigval.shape,
+                       data = eigval.data)
+        eigvec = COO(eigvec_coords_insorted, shape = eigvec.shape,
+                      data = eigvec.data)
+
+    return eigval, eigvec
+
+def block_svd(spmat):
+    from scipy.linalg import svd
+    from ..dok import DOK
+
+    cluster_coords = get_cluster_coords_nosym(spmat.coords,
+                                              spmat.shape)
+    
+    spmat = DOK(spmat)
+    sh = spmat.shape
+    u = DOK(shape = (sh[0], sh[0]))
+    sigma = DOK(shape = (sh[0], sh[1]))
+    vt = DOK(shape = (sh[1], sh[1]))
+    
+    for crds in cluster_coords:
+        cluster = getcluster(spmat, crds)
+        cl_u, cl_s, cl_vt = svd(cluster.todense(), full_matrices=True)
+        cl_smat = np.zeros((cl_u.shape[0], cl_vt.shape[1]),
+                           dtype = sigma.dtype)
+        np.fill_diagonal(cl_smat, cl_s)
+
+        cl_u = DOK(cl_u)
+        cl_vt = DOK(cl_vt)
+        cl_smat = DOK(cl_smat)
+
+        u_crds = [(r, r) for (r, c) in crds]
+        vt_crds = [(c, c) for (r, c) in crds]
+        setcluster(u, u_crds, cl_u)
+        setcluster(vt, vt_crds, cl_vt)
+        setcluster(sigma, crds, cl_smat)
+
+    u = COO(u); sigma = COO(sigma); vt = COO(vt)
+    return u, sigma, vt
