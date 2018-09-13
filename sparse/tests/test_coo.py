@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import operator
 
 import numpy as np
@@ -8,6 +9,7 @@ import scipy.stats
 import sparse
 from sparse import COO
 from sparse.utils import assert_eq, random_value_array
+from sparse.coo import core
 
 
 @pytest.mark.parametrize('reduction,kwargs,eqkwargs', [
@@ -1533,3 +1535,75 @@ def test_invalid_iterable_error():
     with pytest.raises(ValueError):
         x = [((2.3, 4.5), 3.2)]
         COO.from_iter(x)
+
+def test_block_eigh():
+    
+    def is_diagonal(A):
+        return np.allclose(A - np.diag(np.diagonal(A)), 0.0)
+    #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    #np.random.seed(0)
+    x = sparse.random((16, 16), 0.2, format='coo')
+    x += x.T
+
+    y = x.todense()
+    #eigval_sp, eigvec_sp = bcore.block_eigh(x)[1].todense()
+    eigval_sp_coo, eigvec_sp_coo = core.block_eigh(x, sort = True)
+    eigval_sp = eigval_sp_coo.todense()
+    eigvec_sp = eigvec_sp_coo.todense()
+    
+    diagonalized_mat_sp = eigvec_sp.T.dot(x.todense().dot(eigvec_sp))
+
+    assert(is_diagonal(diagonalized_mat_sp))
+    eigval_np = np.linalg.eigh(x.todense())[0]
+    assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
+   
+    #eigval_norm = np.array([np.linalg.norm(d) for d in eigval_sp_coo.data])
+    #print eigval_norm
+    
+    #eig = np.diag(diagonalized_mat_sp)
+    #print eig
+    #for i in range(0, len(eig), 4):
+    #    print np.linalg.norm(eig[i:(i+4)])
+
+def test_block_svd():
+    
+    #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    np.set_printoptions(2, linewidth = 1000, suppress = False)
+    x = sparse.random((16, 8), 0.3, format='coo')
+    '''
+    a = np.zeros((8, 4))
+    a[0:2, 2:4] = np.arange(1, 5).reshape((2, 2))
+    a[4:8, 0:2] = np.arange(1, 9).reshape((4, 2))
+    x = BCOO.from_numpy(a, block_shape = (2, 2)) 
+    '''
+    y = x.todense()
+    u, sigma, vt = core.block_svd(x)
+
+    #xnew = bcalc.einsum("ij,jk,kl->il", u,sigma,vt)
+    xnew = u.dot(sigma).dot(vt)
+
+    assert np.allclose(x.todense(), xnew)
+    
+    u_d = u.todense()
+    vt_d = vt.todense()
+    
+    u_np, sigma_np, vt_np = np.linalg.svd(y, full_matrices = True)
+
+    print "u sp"
+    print u_d
+    print "vt sp"
+    print vt_d
+    print sigma_np
+    print np.sqrt(y.T.dot(y).dot(vt_np.T)/ (vt_np.T))
+    print "u np"
+    print u_np
+    print "vt np"
+    print vt_np
+    print "uT A v"
+    print u_d.T.dot(y.dot(vt_d.T)) 
+    print sigma.todense()
+    print sigma.coords
+
+if __name__ == '__main__':
+    test_block_eigh()
+    test_block_svd()
