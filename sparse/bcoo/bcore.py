@@ -2164,3 +2164,6 @@ def block_svd(spmat):
 
     u = BCOO(u); sigma = BCOO(sigma); vt = BCOO(vt)
     return u, sigma, vt
+
+def zeros(shape, block_shape):
+    return BCOO.from_numpy(np.zeros(shape), block_shape=block_shape)
