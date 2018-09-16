@@ -1645,6 +1645,88 @@ def _grouped_reduce(x, groups, method, **kwargs):
     counts = np.diff(np.concatenate((inv_idx, [len(x)])))
     return result, inv_idx, counts
 
+
+class DOK_without_filter_zeros(SparseArray):
+    def __init__(self, shape, data=None, dtype=None):
+
+        # from COO
+        if isinstance(shape, COO):
+            self.data = dict(zip(zip(*shape.coords), shape.data))
+            self.shape = shape.shape
+            self.dtype = shape.data.dtype
+            return
+        
+        # from numpy
+        if isinstance(shape, np.ndarray):
+            self.data = dict(np.ndenumerate(shape))
+            self.shape = shape.shape
+            self.dtype = shape.dtype
+            return
+        
+        # directly from shape and/or data, where data is a dict
+        if data is None:
+            data = dict()
+        if dtype is not None:
+            self.dtype = dtype
+        else:
+            if not len(data):
+                self.dtype = np.float64
+            else:
+                self.dtype = np.result_type(*map(lambda x: np.asarray(x).dtype, data.values()))
+        
+        self.shape = shape
+        self.data = data
+
+    def asformat(self, format):
+        """
+        Convert this sparse array to a given format.
+
+        Parameters
+        ----------
+        format : str
+            A format string.
+
+        Returns
+        -------
+        out : SparseArray
+            The converted array.
+
+        Raises
+        ------
+        NotImplementedError
+            If the format isn't supported.
+        """
+
+        if format == 'coo' or format is COO:
+            return COO.from_iter(self.data, shape=self.shape)
+
+        raise NotImplementedError('The given format is not supported.')
+    
+    def todense(self):
+        """
+        Convert this :obj:`DOK` array into a Numpy array.
+
+        Returns
+        -------
+        numpy.ndarray
+            The equivalent dense array.
+
+        See Also
+        --------
+        COO.todense : Equivalent :obj:`COO` array method.
+        scipy.sparse.dok_matrix.todense : Equivalent Scipy method.
+
+        Examples
+        --------
+        """
+        result = np.zeros(self.shape, dtype=self.dtype)
+
+        for c, d in self.data.items():
+            result[c] = d
+
+        return result
+
+
 def get_cluster_coords(coords, outer_shape):
     adjacency = defaultdict(list)
     rs, cs = coords
@@ -1710,9 +1792,11 @@ def index_full2cluster(ixs):
     return fullix, clustix
 
 def getcluster(dokmat, coords):
-    from ..dok import DOK
+    #from ..dok import DOK
+    # ZHC NOTE directly use dict maybe better! 
 
-    data = [dokmat[coord] for coord in coords]
+    #data = [dokmat[coord] for coord in coords]
+    data = [dokmat.data[coord] for coord in coords]
     if len(coords[0]) == 1:
         rs = zip(*coords)
         fullr, clustr = index_full2cluster(rs)
@@ -1734,7 +1818,8 @@ def getcluster(dokmat, coords):
     else:
         raise NotImplementedError
     
-    return DOK(shape = tuple(shape), data = data)
+    #return DOK(shape = tuple(shape), data = data)
+    return DOK_without_filter_zeros(shape = tuple(shape), data = data)
 
 def setcluster(dokmat, coords, clustermat):
     
@@ -1742,36 +1827,51 @@ def setcluster(dokmat, coords, clustermat):
         rs = zip(*coords)
         fullr, clustr = index_full2cluster(rs)
         for key in clustermat.data:
-            dokmat[fullr[key[0]]] = clustermat[key]
+            #dokmat[fullr[key[0]]] = clustermat[key]
+            dokmat.data[(fullr[key[0]],)] = clustermat.data[key]
     elif len(coords[0]) == 2:
         rs, cs = zip(*coords)
         fullr, clustr = index_full2cluster(rs)
         fullc, clustc = index_full2cluster(cs)
         for key in clustermat.data:
             r, c = key
-            dokmat[fullr[r], fullc[c]] = clustermat[key]
+            dokmat.data[fullr[r], fullc[c]] = clustermat.data[key]
     return dokmat
+
+
+def get_permute_map(coord_old, coord_new):
+    map_coord = dict(zip(coord_old, coord_new))
+    
+    # add map from not-included values to not-included keys
+    not_include_vidx = np.logical_not(np.isin(coord_new, coord_old))
+    not_include_kidx = np.logical_not(np.isin(coord_old, coord_new))
+    map_coord.update(zip(coord_new[not_include_vidx], coord_old[not_include_kidx]))
+    
+    return map_coord
+
+
 
 def block_eigh(spmat, sort=True):
     from scipy.linalg import eigh
-    from ..dok import DOK
+    #from ..dok import DOK
 
     cluster_coords = get_cluster_coords(spmat.coords, spmat.shape)
-    spmat = DOK(spmat)
-    eigval = DOK((spmat.shape[0],))
-    eigvec = DOK(spmat.shape)
+    spmat = DOK_without_filter_zeros(spmat)
+    eigval = DOK_without_filter_zeros((spmat.shape[0],))
+    eigvec = DOK_without_filter_zeros(spmat.shape)
 
     for crds in cluster_coords:
         cluster = getcluster(spmat, crds)        
         cl_eigval, cl_eigvec = eigh(cluster.todense())
-        cl_eigval = DOK(cl_eigval)
-        cl_eigvec = DOK(cl_eigvec)
+        cl_eigval = DOK_without_filter_zeros(cl_eigval)
+        cl_eigvec = DOK_without_filter_zeros(cl_eigvec)
 
         diag_crds = [(r,) for (r,c) in crds]
         setcluster(eigval, diag_crds, cl_eigval)
         setcluster(eigvec, crds, cl_eigvec)
 
-    eigval = COO(eigval); eigvec = COO(eigvec)
+    eigval = COO(eigval)
+    eigvec = COO(eigvec)
     
     if sort:
         #eigval_norm = [np.linalg.norm(d) for d in eigval.data]
@@ -1790,35 +1890,123 @@ def block_eigh(spmat, sort=True):
 
     return eigval, eigvec
 
-def block_svd(spmat):
+def block_svd(spmat, sort = True, full_matrices = False):
     from scipy.linalg import svd
-    from ..dok import DOK
+    #from ..dok import DOK
+
+    if spmat.nnz == 0: # all zero case
+        K = min(spmat.shape[0], spmat.shape[1])
+        if full_matrices:
+            u_shape = (spmat.shape[0], spmat.shape[0])
+            s_shape = spmat.shape
+            vt_shape = (spmat.shape[1], spmat.shape[1])
+        else:
+            u_shape = (spmat.shape[0], K)
+            s_shape = (K, K)
+            vt_shape = (K, spmat.shape[1])
+
+        u = COO([], shape = u_shape, data = [])
+        s = COO([], shape = s_shape, data = [])
+        vt = COO([], shape = vt_shape, data = [])
+        return u, s, vt
 
     cluster_coords = get_cluster_coords_nosym(spmat.coords,
                                               spmat.shape)
-    
-    spmat = DOK(spmat)
+    spmat = DOK_without_filter_zeros(spmat)
     sh = spmat.shape
-    u = DOK(shape = (sh[0], sh[0]))
-    sigma = DOK(shape = (sh[0], sh[1]))
-    vt = DOK(shape = (sh[1], sh[1]))
-    
+    u = DOK_without_filter_zeros(shape = (sh[0], sh[0]))
+    s = DOK_without_filter_zeros(shape = (sh[0], sh[1]))
+    vt = DOK_without_filter_zeros(shape = (sh[1], sh[1]))
+   
     for crds in cluster_coords:
         cluster = getcluster(spmat, crds)
         cl_u, cl_s, cl_vt = svd(cluster.todense(), full_matrices=True)
-        cl_smat = np.zeros((cl_u.shape[0], cl_vt.shape[1]),
-                           dtype = sigma.dtype)
-        np.fill_diagonal(cl_smat, cl_s)
+        #cl_smat = np.zeros((cl_u.shape[0], cl_vt.shape[1]),
+        #                   dtype = s.dtype)
+        #np.fill_diagonal(cl_smat, cl_s) 
 
-        cl_u = DOK(cl_u)
-        cl_vt = DOK(cl_vt)
-        cl_smat = DOK(cl_smat)
+        cl_u = DOK_without_filter_zeros(cl_u)
+        cl_vt = DOK_without_filter_zeros(cl_vt)
+        cl_K = min(cl_u.shape[0], cl_vt.shape[1])
+        cl_smat_data = dict(zip(zip(np.arange(cl_K), np.arange(cl_K)), cl_s))
+        cl_smat = DOK_without_filter_zeros(shape = (cl_u.shape[0], cl_vt.shape[1]), data = cl_smat_data)
 
         u_crds = [(r, r) for (r, c) in crds]
         vt_crds = [(c, c) for (r, c) in crds]
         setcluster(u, u_crds, cl_u)
         setcluster(vt, vt_crds, cl_vt)
-        setcluster(sigma, crds, cl_smat)
+        setcluster(s, crds, cl_smat)
 
-    u = COO(u); sigma = COO(sigma); vt = COO(vt)
-    return u, sigma, vt
+    if sort:
+        u_coords = np.asarray(zip(*u.data.keys()))
+        u_values = np.asarray(u.data.values())
+        s_coords = np.asarray(zip(*s.data.keys()))
+        s_values = np.asarray(s.data.values())
+        vt_coords = np.asarray(zip(*vt.data.keys()))
+        vt_values = np.asarray(vt.data.values())
+        
+        # sort row of s to make s descending order
+        s_values_idx = (-s_values).argsort()
+        s_row_sorted = np.empty(len(s_coords[0]), dtype = np.int)
+        s_row_sorted[s_values_idx] = np.arange(len(s_coords[0]))
+        s_col_sorted = s_row_sorted
+        
+        if s.shape[0] <= s.shape[1]:
+            
+            # get row map of s
+            map_s_row = get_permute_map(s_coords[0], s_row_sorted)
+            
+            # sort col of u_coords based on sorted s
+            u_coords_new = np.asarray((u_coords[0] ,[map_s_row.get(y, y) for y in u_coords[1]]))
+            
+            # permute col of s to make s diagonal
+            s_coords_new = np.asarray((s_row_sorted, s_row_sorted))
+            
+            # get col map of s
+            map_s_col = get_permute_map(s_coords[1], s_row_sorted)
+            
+            # sort row of vt_coords based on permuted s
+            vt_coords_new = np.asarray(([map_s_col.get(x, x) for x in vt_coords[0]], vt_coords[1]))
+        else: 
+            
+            map_s_col = get_permute_map(s_coords[1], s_row_sorted)
+
+            # sort row of vt_coords based on sorted s
+            vt_coords_new = np.asarray(([map_s_col.get(x, x) for x in vt_coords[0]], vt_coords[1]))
+            
+            # permute row of s to make s diagonal
+            s_coords_new = np.asarray((s_col_sorted, s_col_sorted))
+
+            map_s_row = get_permute_map(s_coords[0], s_col_sorted)
+            
+            # sort col of u_coords based on permuted s
+            u_coords_new = np.asarray((u_coords[0] ,[map_s_row.get(y, y) for y in u_coords[1]]))
+       
+        if not full_matrices:
+            K = min(spmat.shape[0], spmat.shape[1])
+            u_shape = (spmat.shape[0], K)
+            s_shape = (K, K)
+            vt_shape = (K, spmat.shape[1])
+            if s.shape[0] <= s.shape[1]:
+                mask = vt_coords_new[0] < K
+                vt_coords_new = vt_coords_new[:, mask]
+                vt_values = vt_values[mask]
+            else:
+                mask = u_coords_new[1] < K
+                u_coords_new = u_coords_new[:, mask]
+                u_values = u_values[mask]
+
+        else:
+            u_shape = u.shape
+            s_shape = s.shape
+            vt_shape = vt.shape
+
+        u = COO(u_coords_new, shape = u_shape, data = u_values)
+        s = COO(s_coords_new, shape = s_shape, data = s_values)
+        vt = COO(vt_coords_new, shape = vt_shape, data = vt_values)
+
+    else:
+        # not sort
+        u = COO(u); s = COO(s); vt = COO(vt)
+    
+    return u, s, vt

@@ -145,7 +145,8 @@ def tensordot(a, b, axes=2):
     bt = b.transpose(newaxes_b).reshape(newshape_b)
     res = _dot(at, bt)
     if isinstance(res, scipy.sparse.spmatrix):
-        if res.nnz > reduce(operator.mul, res.shape) / 2:
+        #if res.nnz > reduce(operator.mul, res.shape) / 2:
+        if False: # ZHC NOTE not convert to dense
             res = res.todense()
         else:
             res = COO.from_scipy_sparse(res)  # <--- modified
