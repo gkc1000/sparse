@@ -1548,10 +1548,11 @@ def test_invalid_iterable_error():
 @pytest.mark.parametrize('density', [0.0, 0.1, 0.4, 1.0])
 @pytest.mark.parametrize('sort', [True, False])
 def test_block_eigh(shape, density, sort):
-    
+   
+    #shape = (1, 1); density = 0.4; sort = True
     def is_diagonal(A):
         return np.allclose(A - np.diag(np.diagonal(A)), 0.0)
-    #np.set_printoptions(3, linewidth = 1000, suppress = True)
+    np.set_printoptions(3, linewidth = 1000, suppress = True)
     #np.random.seed(0)
     x = sparse.random(shape, density, format='coo')
     x += x.T
@@ -1565,9 +1566,9 @@ def test_block_eigh(shape, density, sort):
 
     assert(is_diagonal(diagonalized_mat_sp))
     eigval_np = np.linalg.eigh(x.todense())[0]
-    assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
-   
 
+    assert(np.allclose(np.sort(np.diagonal(diagonalized_mat_sp)), eigval_np))
+    #print diagonalized_mat_sp
 
 
 @pytest.mark.parametrize('shape', [
@@ -1604,8 +1605,8 @@ def test_block_svd(shape, density, full_matrices, sort):
 
 if __name__ == '__main__':
 
-    shape = (3, 1)
-    density = 0.1
+    shape = (16, 16)
+    density = 0.05
     sort = True
     full_matrices = False
     test_block_eigh(shape, density, sort)
