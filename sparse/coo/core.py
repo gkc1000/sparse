@@ -1901,7 +1901,7 @@ def block_eigh(spmat, sort=True):
 
     return eigval, eigvec
 
-def block_svd(spmat, sort = True, full_matrices = False):
+def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None):
     from scipy.linalg import svd
     #from ..dok import DOK
 
@@ -1986,17 +1986,34 @@ def block_svd(spmat, sort = True, full_matrices = False):
        
         if not full_matrices:
             K = min(spmat.shape[0], spmat.shape[1])
-            u_shape = (spmat.shape[0], K)
-            s_shape = (K, K)
-            vt_shape = (K, spmat.shape[1])
-            if s.shape[0] <= s.shape[1]:
+            if dim_keep is None or dim_keep >= K:
+                u_shape = (spmat.shape[0], K)
+                s_shape = (K, K)
+                vt_shape = (K, spmat.shape[1])
+                if s.shape[0] <= s.shape[1]:
+                    mask = vt_coords_new[0] < K
+                    vt_coords_new = vt_coords_new[:, mask]
+                    vt_values = vt_values[mask]
+                else:
+                    mask = u_coords_new[1] < K
+                    u_coords_new = u_coords_new[:, mask]
+                    u_values = u_values[mask]
+            else: # keep only several dimensions
+                K = dim_keep
+                u_shape = (spmat.shape[0], K)
+                s_shape = (K, K)
+                vt_shape = (K, spmat.shape[1])
+                
+                mask = s_coords_new[0] < K
+                s_coords_new = s_coords_new[:, mask]
+                s_values = s_values[mask]
                 mask = vt_coords_new[0] < K
                 vt_coords_new = vt_coords_new[:, mask]
                 vt_values = vt_values[mask]
-            else:
                 mask = u_coords_new[1] < K
                 u_coords_new = u_coords_new[:, mask]
                 u_values = u_values[mask]
+                
 
         else: # full svd
             u_shape = u.shape
