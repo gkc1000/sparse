@@ -1582,8 +1582,10 @@ def test_block_eigh(shape, density, sort):
 @pytest.mark.parametrize('density', [0.0, 0.1, 0.4, 1.0])
 @pytest.mark.parametrize('full_matrices', [True, False])
 @pytest.mark.parametrize('sort', [True, False])
-def test_block_svd(shape, density, full_matrices, sort):
-    
+def test_block_svd(shape, density, sort, full_matrices):
+   
+    #dim_keep = 200
+    dim_keep = None
     #np.set_printoptions(3, linewidth = 1000, suppress = True)
     #np.random.seed(2)
     #shape = (1, 3); density = 0.1; full_matrices = False; sort = True
@@ -1591,10 +1593,11 @@ def test_block_svd(shape, density, full_matrices, sort):
     np.set_printoptions(3, linewidth = 1000, suppress = True)
     x = sparse.random(shape, density, format='coo')
     y = x.todense()
-    
-    u, s, vt = core.block_svd(x, sort = sort, full_matrices = full_matrices)
+   
+    u, s, vt = core.block_svd(x, sort = sort, full_matrices = full_matrices, dim_keep = dim_keep)
     xnew = u.dot(s).dot(vt)
-    assert np.allclose(x.todense(), xnew)
+    if (dim_keep is None) or (dim_keep >= min(x.shape[0], x.shape[1])):
+        assert np.allclose(x.todense(), xnew)
     u_np, s_np, vt_np = np.linalg.svd(y, full_matrices = False)
     
     if not sort:
@@ -1606,8 +1609,8 @@ def test_block_svd(shape, density, full_matrices, sort):
 if __name__ == '__main__':
 
     shape = (16, 16)
-    density = 0.05
+    density = 0.1
     sort = True
     full_matrices = False
-    test_block_eigh(shape, density, sort)
+    #test_block_eigh(shape, density, sort)
     test_block_svd(shape, density, sort, full_matrices)
