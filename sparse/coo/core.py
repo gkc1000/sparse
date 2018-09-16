@@ -1854,7 +1854,7 @@ def get_permute_map(coord_old, coord_new):
 def block_eigh(spmat, sort=True):
     from scipy.linalg import eigh
     #from ..dok import DOK
-
+    
     cluster_coords = get_cluster_coords(spmat.coords, spmat.shape)
     spmat = DOK_without_filter_zeros(spmat)
     eigval = DOK_without_filter_zeros((spmat.shape[0],))
@@ -1870,23 +1870,34 @@ def block_eigh(spmat, sort=True):
         setcluster(eigval, diag_crds, cl_eigval)
         setcluster(eigvec, crds, cl_eigvec)
 
-    eigval = COO(eigval)
-    eigvec = COO(eigvec)
-    
     if sort:
-        #eigval_norm = [np.linalg.norm(d) for d in eigval.data]
-        eigval_norm = eigval.data # use norm?
-        ix = np.argsort(np.argsort(eigval_norm))
-        cols_insorted = eigval.coords[:, ix]
-        
-        sort_map = dict(zip(eigval.coords[0], cols_insorted[0]))
-        eigvec_cols_insorted = [sort_map[c] for c in eigvec.coords[1]]
-        eigvec_coords_insorted = np.asarray([eigvec.coords[0], eigvec_cols_insorted])
+        if len(eigval.data.keys()) == 0: # all zero case
+            eigval_coords = np.asarray([[]])
+            eigvec_coords = np.asarray([[],[]]) 
+        else:
+            eigval_coords = np.asarray(zip(*eigval.data.keys()))
+            eigvec_coords = np.asarray(zip(*eigvec.data.keys())) 
 
-        eigval = COO(cols_insorted, shape = eigval.shape,
-                       data = eigval.data)
-        eigvec = COO(eigvec_coords_insorted, shape = eigvec.shape,
-                      data = eigvec.data)
+        eigval_data = np.asarray(eigval.data.values())
+        eigvec_data = np.asarray(eigvec.data.values())
+
+        #eigval_norm = [np.linalg.norm(d) for d in eigval.data]
+        eigval_norm = eigval_data # use norm?
+        eigval_idx = (eigval_norm).argsort()
+        eigval_sorted = np.empty(len(eigval_coords[0]), dtype = np.int)
+        eigval_sorted[eigval_idx] = np.arange(len(eigval_coords[0]))
+        
+        eigval_coords_new = np.asarray((eigval_sorted, ))
+        map_e_col = get_permute_map(eigval_coords[0], eigval_sorted)
+        eigvec_coords_new = np.asarray((eigvec_coords[0] ,[map_e_col.get(y, y) for y in eigvec_coords[1]]))
+        
+        eigval = COO(eigval_coords_new, shape = eigval.shape,
+                       data = eigval_data)
+        eigvec = COO(eigvec_coords_new, shape = eigvec.shape,
+                      data = eigvec_data)
+    else:
+        eigval = COO(eigval)
+        eigvec = COO(eigvec)
 
     return eigval, eigvec
 
@@ -1904,7 +1915,8 @@ def block_svd(spmat, sort = True, full_matrices = False):
             u_shape = (spmat.shape[0], K)
             s_shape = (K, K)
             vt_shape = (K, spmat.shape[1])
-
+        
+        # ZHC TODO make u and vt eye
         u = COO([], shape = u_shape, data = [])
         s = COO([], shape = s_shape, data = [])
         vt = COO([], shape = vt_shape, data = [])
@@ -1952,33 +1964,23 @@ def block_svd(spmat, sort = True, full_matrices = False):
         s_col_sorted = s_row_sorted
         
         if s.shape[0] <= s.shape[1]:
-            
             # get row map of s
             map_s_row = get_permute_map(s_coords[0], s_row_sorted)
-            
             # sort col of u_coords based on sorted s
             u_coords_new = np.asarray((u_coords[0] ,[map_s_row.get(y, y) for y in u_coords[1]]))
-            
             # permute col of s to make s diagonal
             s_coords_new = np.asarray((s_row_sorted, s_row_sorted))
-            
             # get col map of s
             map_s_col = get_permute_map(s_coords[1], s_row_sorted)
-            
             # sort row of vt_coords based on permuted s
             vt_coords_new = np.asarray(([map_s_col.get(x, x) for x in vt_coords[0]], vt_coords[1]))
         else: 
-            
             map_s_col = get_permute_map(s_coords[1], s_row_sorted)
-
             # sort row of vt_coords based on sorted s
             vt_coords_new = np.asarray(([map_s_col.get(x, x) for x in vt_coords[0]], vt_coords[1]))
-            
             # permute row of s to make s diagonal
             s_coords_new = np.asarray((s_col_sorted, s_col_sorted))
-
             map_s_row = get_permute_map(s_coords[0], s_col_sorted)
-            
             # sort col of u_coords based on permuted s
             u_coords_new = np.asarray((u_coords[0] ,[map_s_row.get(y, y) for y in u_coords[1]]))
        
@@ -1996,7 +1998,7 @@ def block_svd(spmat, sort = True, full_matrices = False):
                 u_coords_new = u_coords_new[:, mask]
                 u_values = u_values[mask]
 
-        else:
+        else: # full svd
             u_shape = u.shape
             s_shape = s.shape
             vt_shape = vt.shape
