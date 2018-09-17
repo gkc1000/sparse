@@ -1577,13 +1577,14 @@ def test_block_eigh(shape, density, sort):
     (20, 20),
     (1, 1),
     (3, 1),
-    (1, 3),
+    (1, 5),
 ])
 @pytest.mark.parametrize('density', [0.0, 0.1, 0.4, 1.0])
 @pytest.mark.parametrize('full_matrices', [True, False])
 @pytest.mark.parametrize('sort', [True, False])
 @pytest.mark.parametrize('dim_keep', [1, 3, 7, 12, 24])
-def test_block_svd(shape, density, sort, full_matrices, dim_keep):
+@pytest.mark.parametrize('return_dwt', [True, False])
+def test_block_svd(shape, density, sort, full_matrices, dim_keep, return_dwt):
    
     if dim_keep >= np.min(shape):
         dim_keep = None
@@ -1592,7 +1593,12 @@ def test_block_svd(shape, density, sort, full_matrices, dim_keep):
     x = sparse.random(shape, density, format='coo')
     y = x.todense()
    
-    u, s, vt = core.block_svd(x, sort = sort, full_matrices = full_matrices, dim_keep = dim_keep)
+    if return_dwt:
+        u, s, vt, dwt = core.block_svd(x, sort = sort, full_matrices = full_matrices, dim_keep = dim_keep, return_dwt =
+                return_dwt)
+    else:
+        u, s, vt = core.block_svd(x, sort = sort, full_matrices = full_matrices, dim_keep = dim_keep)
+    
     xnew = u.dot(s).dot(vt)
     u_np, s_np, vt_np = np.linalg.svd(y, full_matrices = False)
     if (dim_keep is not None) and (sort == True) and (full_matrices == False):
@@ -1604,14 +1610,19 @@ def test_block_svd(shape, density, sort, full_matrices, dim_keep):
         s_sort = -np.sort(-s.data)
     else:
         s_sort = s.data
+    
     assert np.allclose(s_sort, s_np[:len(s_sort)])
-
+    
+    if return_dwt:
+        assert(np.allclose(dwt, s_np[len(s_sort):].sum()))
+        #print dwt
 if __name__ == '__main__':
 
-    shape = (20, 20)
-    density = 1.0
+    shape = (40, 20)
+    density = 0.5
     sort = True
     full_matrices = False
-    dim_keep = 12
+    dim_keep = 20
+    return_dwt = True
     #test_block_eigh(shape, density, sort)
-    test_block_svd(shape, density, sort, full_matrices, dim_keep)
+    test_block_svd(shape, density, sort, full_matrices, dim_keep, return_dwt)

@@ -1223,6 +1223,12 @@ class COO(SparseArray, NDArrayOperatorsMixin):
         if self._cache is not None:
             self._cache['reshape'].append((shape, result))
         return result
+    
+    def ravel(self):
+        # ZHC TODO
+        # consider not return a new object
+        return self.reshape((-1,))
+
 
     def to_scipy_sparse(self):
         """
@@ -1901,10 +1907,11 @@ def block_eigh(spmat, sort=True):
 
     return eigval, eigvec
 
-def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None):
+def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None, return_dwt = False):
     from scipy.linalg import svd
     #from ..dok import DOK
 
+    dwt = 0.0
     if spmat.nnz == 0: # all zero case
         K = min(spmat.shape[0], spmat.shape[1])
         if full_matrices:
@@ -1920,7 +1927,10 @@ def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None):
         u = COO([], shape = u_shape, data = [])
         s = COO([], shape = s_shape, data = [])
         vt = COO([], shape = vt_shape, data = [])
-        return u, s, vt
+        if not return_dwt:
+            return u, s, vt
+        else:
+            return u, s, vt, dwt
 
     cluster_coords = get_cluster_coords_nosym(spmat.coords,
                                               spmat.shape)
@@ -2006,7 +2016,13 @@ def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None):
                 
                 mask = s_coords_new[0] < K
                 s_coords_new = s_coords_new[:, mask]
-                s_values = s_values[mask]
+                if not return_dwt:
+                    s_values = s_values[mask]
+                else: # return discarded weights
+                    trace_full = s_values.sum()
+                    s_values = s_values[mask]
+                    dwt = trace_full - (s_values.sum())
+
                 mask = vt_coords_new[0] < K
                 vt_coords_new = vt_coords_new[:, mask]
                 vt_values = vt_values[mask]
@@ -2014,7 +2030,6 @@ def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None):
                 u_coords_new = u_coords_new[:, mask]
                 u_values = u_values[mask]
                 
-
         else: # full svd
             u_shape = u.shape
             s_shape = s.shape
@@ -2027,5 +2042,7 @@ def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None):
     else:
         # not sort
         u = COO(u); s = COO(s); vt = COO(vt)
-    
-    return u, s, vt
+    if not return_dwt:
+        return u, s, vt
+    else:
+        return u, s, vt, dwt
