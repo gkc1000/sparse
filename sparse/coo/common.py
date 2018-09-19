@@ -155,7 +155,7 @@ def tensordot(a, b, axes=2):
         res = np.asarray(res)
     return res.reshape(olda + oldb)
 
-
+#@profile
 def dot(a, b):
     """
     Perform the equivalent of :obj:`numpy.dot` on two arrays.
