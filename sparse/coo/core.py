@@ -354,8 +354,12 @@ class COO(SparseArray, NDArrayOperatorsMixin):
         coords = np.empty((2, x.nnz), dtype=x.row.dtype)
         coords[0, :] = x.row
         coords[1, :] = x.col
+        #return COO(coords, x.data, shape=x.shape,
+        #           has_duplicates=not x.has_canonical_format,
+        #           sorted=x.has_canonical_format)
+        # ZHC NOTE
         return COO(coords, x.data, shape=x.shape,
-                   has_duplicates=not x.has_canonical_format,
+                   has_duplicates=False,
                    sorted=x.has_canonical_format)
 
     @classmethod
@@ -1259,6 +1263,7 @@ class COO(SparseArray, NDArrayOperatorsMixin):
         result.has_canonical_format = True
         return result
 
+    #@profile
     def _tocsr(self):
         if self.ndim != 2:
             raise ValueError('This array must be two-dimensional for this conversion '
@@ -1898,9 +1903,9 @@ def block_eigh(spmat, sort=True):
         eigvec_coords_new = np.asarray((eigvec_coords[0] ,[map_e_col.get(y, y) for y in eigvec_coords[1]]))
         
         eigval = COO(eigval_coords_new, shape = eigval.shape,
-                       data = eigval_data)
+                       data = eigval_data, has_duplicates = False)
         eigvec = COO(eigvec_coords_new, shape = eigvec.shape,
-                      data = eigvec_data)
+                      data = eigvec_data, has_duplicates = False)
     else:
         eigval = COO(eigval)
         eigvec = COO(eigvec)
@@ -2035,12 +2040,11 @@ def block_svd(spmat, sort = True, full_matrices = False, dim_keep = None, return
             s_shape = s.shape
             vt_shape = vt.shape
 
-        u = COO(u_coords_new, shape = u_shape, data = u_values)
-        s = COO(s_coords_new, shape = s_shape, data = s_values)
-        vt = COO(vt_coords_new, shape = vt_shape, data = vt_values)
+        u = COO(u_coords_new, shape = u_shape, data = u_values, has_duplicates = False)
+        s = COO(s_coords_new, shape = s_shape, data = s_values, has_duplicates = False)
+        vt = COO(vt_coords_new, shape = vt_shape, data = vt_values, has_duplicates = False)
 
-    else:
-        # not sort
+    else: # not sort
         u = COO(u); s = COO(s); vt = COO(vt)
     if not return_dwt:
         return u, s, vt

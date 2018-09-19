@@ -72,3 +72,6 @@ target/
 
 # npy
 *.npy
+
+*benchmark_einsum*
+*.swp
